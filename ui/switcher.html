@@ -9,12 +9,12 @@
 :root{color-scheme:dark}
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;background:transparent;color:#eef2fb;font:15px Inter,system-ui,sans-serif;overflow:hidden;user-select:none}
-#dim{position:fixed;inset:0;background:rgba(4,6,12,.72);backdrop-filter:blur(6px)}
+#dim{position:fixed;inset:0;background:rgba(4,6,12,.84);backdrop-filter:blur(6px)}
 #wrap{position:fixed;inset:0;display:flex;flex-direction:column;justify-content:center;gap:3vh}
 h1{margin:0 0 0 6vw;font:600 clamp(18px,2.6vh,26px) Inter,system-ui,sans-serif}
 #row{display:flex;gap:2vw;padding:2vh 6vw;overflow:hidden;scroll-behavior:smooth}
-.card{flex:none;width:clamp(220px,22vw,380px);display:flex;flex-direction:column;gap:1.2vh;opacity:.9;transition:transform .15s ease,opacity .15s ease;cursor:pointer}
-.card.on{opacity:1;transform:scale(1.06)}
+.card{flex:none;width:clamp(220px,22vw,380px);display:flex;flex-direction:column;gap:1.2vh;transition:transform .15s ease,opacity .15s ease;cursor:pointer}
+.card.on{transform:scale(1.06)}
 .shot{aspect-ratio:16/10;border-radius:14px;background:#141b2e center/cover no-repeat;border:2px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;overflow:hidden}
 .card.on .shot{border-color:#fff;box-shadow:0 0 0 3px #5B9BFF,0 18px 40px rgba(0,0,0,.5)}
 .shot img.big{width:28%;opacity:.9}
