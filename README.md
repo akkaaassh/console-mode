@@ -34,7 +34,6 @@ Works with Xbox-style controllers (XInput), including most third-party pads in X
 - **Change artwork** from a game's or app's ··· menu: pick a cover, background or logo from SteamGridDB, choose a different match, search another name, or use an image from your PC.
 - **Web apps**: Chrome and Edge installed web apps show up in Apps, and **+ Add web app** turns any website into a full-screen app tile.
 - **Updates**: Settings › Updates checks GitHub for a newer build and installs it.
-- **Controller test**: Settings › Controller shows every button Windows sees and lets you give extra buttons (if your pad reports them) an action.
 - **Close to tray**: from Power or Settings › Startup. The controller mouse keeps working; open Console Mode again from the icon by the clock.
 
 ### Connecting Spotify (optional, for the music panel)

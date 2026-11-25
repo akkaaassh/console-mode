@@ -60,7 +60,7 @@ button{font:inherit;color:inherit;cursor:pointer;border:none;background:none;pad
 /* quick menu */
 #qm{position:absolute;inset:0;z-index:20;display:none}
 .qa{height:58px;border-radius:29px;padding:0 18px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:2px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);text-align:center;white-space:nowrap;overflow:hidden}
-#gal,#ctl{position:absolute;inset:0;z-index:28;display:none}
+#gal{position:absolute;inset:0;z-index:28;display:none}
 .gimg{border-radius:10px;border:2px solid transparent;width:100%}
 .gimg.sf{outline:3px solid #fff;outline-offset:3px}
 .gimg.cur{border-color:#3FE08A}
@@ -104,7 +104,7 @@ button{font:inherit;color:inherit;cursor:pointer;border:none;background:none;pad
 .side button{padding:12px;border-radius:10px;color:rgba(255,255,255,.7);font-size:15px;text-align:left}.side button.on{background:rgba(255,255,255,.1);color:#fff;font-weight:600}
 /* chrome */
 #bg{position:absolute;inset:0;transition:background .5s}
-#fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+#fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2;mix-blend-mode:screen}
 #opt{position:absolute;inset:0;z-index:30;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55)}
 .fld{width:520px;height:46px;border-radius:10px;border:2px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;font:16px Inter,sans-serif;padding:0 14px;outline:none}.fld:focus,.fld.tgt{border-color:#5B9BFF}
 #conn{position:absolute;inset:0;z-index:25;display:none}
@@ -156,7 +156,6 @@ button{font:inherit;color:inherit;cursor:pointer;border:none;background:none;pad
   <div id="qm"></div>
   <div id="conn"></div>
   <div id="gal"></div>
-  <div id="ctl"></div>
   <div id="opt"></div>
   <div id="toast"></div>
   <div id="help"></div>
@@ -266,7 +265,7 @@ const SORT=[['recent','Recently played'],['name','Name A–Z'],['installed','Rec
 function groups(){
  const s=SECS[S.set.sec][1];
  if(s==='appearance')return[{t:'seg',k:'sortGames',label:'Games order · Home row and Library',opts:SORT},{t:'seg',k:'sortApps',label:'Apps order · Apps tab',opts:SORT},{t:'tog',k:'particles',label:'Moving particles in the background'},{t:'tog',k:'showHidden',label:'Show hidden games and apps'},{t:'tog',k:'homeScreen',label:'Home screen mode: no taskbar button, stays behind your apps'},{t:'btn',opts:[['unhide','Unhide everything']]}];
- if(s==='controller')return[{t:'slider',k:'cursor',label:'Pointer speed',min:25,max:300,step:25,unit:'%'},{t:'seg',k:'leftStick',label:'Left stick on the desktop',opts:[['scroll','Scrolls'],['pointer','Moves the pointer']]},{t:'btn',opts:[['ctltest','Test controller and set up extra buttons']]}];
+ if(s==='controller')return[{t:'slider',k:'cursor',label:'Pointer speed',min:25,max:300,step:25,unit:'%'},{t:'seg',k:'leftStick',label:'Left stick on the desktop',opts:[['scroll','Scrolls'],['pointer','Moves the pointer']]}];
  if(s==='artwork')return[{t:'field',k:'sgdbKey',label:'SteamGridDB API key (free; for non-Steam games and apps)'},{t:'tog',k:'steamArt',label:'Use Steam’s online artwork for Steam games'},{t:'btn',opts:[['artall','Get artwork for everything'],['artclear','Clear downloaded artwork']]}];
  if(s==='music')return[{t:'field',k:'spClient',label:'Spotify Client ID'},{t:'btn',opts:[['spconnect',spConnected()?'Reconnect Spotify':'Connect Spotify'],...(spConnected()?[['spdisconnect','Disconnect']]:[])]}];
  if(s==='signin')return[{t:'map',keys:['1','2','3','4']},{t:'map',keys:['5','6','7','8']},{t:'map',keys:['9','0','del','enter']},{t:'btn',opts:[['reset','Reset to default'],...(NATIVE?[]:[['signout','Sign out to test']])]}];
@@ -334,7 +333,6 @@ function sgAct(gi,oi){if(NATIVE&&nSgAct(gi,oi))return;
   if(a==='signout'){S.game=null;S.qm.open=false;go('login');return}
   if(a==='exit'){st.confirm=true;st.cf=1}
   if(a==='tray'){if(NATIVE){invoke('hide_to_tray');return}toast('Closes to the tray in the Windows app')}
-  if(a==='ctltest'){openCtl();return}
   if(a==='updcheck'){updCheck();return}
   if(a==='updinstall'){updInstall();return}
   if(a==='artall')artAll();if(a==='artclear')artClear();
@@ -352,7 +350,7 @@ function render(){S.heroBg=null;
  if(fn)sc.innerHTML=fn();
  const el=S.screen==='desktop'?$('#desk'):sc;
  if(S.last!==S.screen){el.classList.remove('enter');void el.offsetWidth;el.classList.add('enter');S.last=S.screen}
- renderQM();renderOSK();renderSheet();renderConn();renderGal();renderCtl();paintBg();hover();
+ renderQM();renderOSK();renderSheet();renderConn();renderGal();paintBg();hover();
 }
 function go(s){S.sheet=null;S.conn=null;S.lz='grid';if(NATIVE&&s==='desktop'){S.qm.open=false;closeOsk();invoke('go_desktop');render();return}if(NATIVE&&s==='settings'&&SECS[S.set.sec][1]==='power')invoke('get_brightness').then(v=>{if(v!=null){PREF.bright=v;if(S.screen==='settings')render()}});if(s==='settings'&&S.screen!=='settings')S.from=S.screen;S.screen=s;if(s!=='desktop')closeOsk();render()}
 
@@ -408,7 +406,7 @@ function oskKey(k){
  if(k==='⌫'){if(c>0){v=v.slice(0,c-1)+v.slice(c);c--}}
  else if(k==='Enter'){if(el.tagName==='TEXTAREA'){v=v.slice(0,c)+'\n'+v.slice(c);c++}else{closeOsk();if(el.id==='sheetFld'&&S.sheet){sheetAct(0);return}if(el.dataset.save){PREF[el.dataset.save]=v.trim();savePref();toast('Saved');render()}else toast(v.trim()?'Searched for “'+v.trim()+'”':'Search is empty');return}}
  else{const ins=k==='Space'?' ':(o.shift&&k.length===1?k.toUpperCase():k);v=v.slice(0,c)+ins+v.slice(c);c+=ins.length;if(k!=='Space')o.shift=false}
- el.value=v;o.caret=c;renderOSK();
+ el.value=v;o.caret=c;if(el.id==='sheetFld'&&S.sheet&&S.sheet.input)S.sheet.input.value=v;renderOSK();
 }
 function oskBtn(b){
  const o=S.osk;
@@ -475,12 +473,11 @@ function assign(b){
 function handle(b){
  if(S.help){if(b==='A'||b==='B')toggleHelp();return}
  if(S.screen==='settings'&&S.set.listen){if(b==='Guide'){S.set.listen=false;render();return}if(!DIRS.has(b))assign(b);return}
- if(b==='Guide'){if(S.screen==='login'||S.screen==='welcome'||S.screen==='closed')return;if(S.osk.open)closeOsk();S.sheet=null;S.conn=null;S.gal=null;if(S.ctl)closeCtl();S.qm.open=!S.qm.open;S.qm.row=0;S.qm.col=0;S.qm.side=false;render();return}
+ if(b==='Guide'){if(S.screen==='login'||S.screen==='welcome'||S.screen==='closed')return;if(S.osk.open)closeOsk();S.sheet=null;S.conn=null;S.gal=null;S.qm.open=!S.qm.open;S.qm.row=0;S.qm.col=0;S.qm.side=false;render();return}
  if(!NATIVE&&b==='A'&&S.screen!=='login'&&Date.now()-S.ct<2500&&clickAtCursor())return;
  if(S.osk.open){oskBtn(b);return}
  if(S.sheet){sheetBtn(b);return}
  if(S.gal){galBtn(b);return}
- if(S.ctl){ctlBtn(b);return}
  if(S.conn){connBtn(b);return}
  if(S.qm.open){qmBtn(b);return}
  (SCREEN[S.screen]||(()=>{}))(b);
@@ -529,10 +526,9 @@ function act(a){
  else if(n==='galtop')galTopAct(x);
  else if(n==='galk'){S.gal.k=i;S.gal.i=0;galLoad()}
  else if(n==='galimg'){const G=S.gal,im=(G.imgs[GKINDS[G.k][0]]||[])[i];if(im)galSet(GKINDS[G.k][2],im.url)}
- else if(n==='ctlrow')ctlAct(x);
  else if(n==='addweb')addWebApp();
 }
-document.addEventListener('input',e=>{const t=e.target;if(t&&t.dataset&&t.dataset.save){PREF[t.dataset.save]=t.value.trim();savePref()}});
+document.addEventListener('input',e=>{const t=e.target;if(t&&t.id==='sheetFld'&&S.sheet&&S.sheet.input)S.sheet.input.value=t.value;if(t&&t.dataset&&t.dataset.save){PREF[t.dataset.save]=t.value.trim();savePref()}});
 document.addEventListener('click',e=>{const a=e.target.closest('[data-act]');if(a){e.preventDefault();act(a.dataset.act)}});
 ['dsearch','dnotes'].forEach(id=>{const el=document.getElementById(id);el.addEventListener('mousedown',()=>{if(S.osk.open)closeOsk()})});
 
@@ -770,13 +766,13 @@ async function pollStats(){const s=await invoke('stats');if(!s)return;const push
 const FX={on:false,parts:[],raf:0,last:0,tint:[120,170,255]};
 const fx=$('#fx'),fxc=fx.getContext('2d');
 function fxSize(){if(!fxc)return;const r=stage.getBoundingClientRect(),d=Math.min(2,window.devicePixelRatio||1);fx.width=Math.round(r.width*d);fx.height=Math.round(r.height*d);fxc.setTransform(fx.width/1280,0,0,fx.height/720,0,0)}
-function fxSeed(){FX.parts=[];for(let i=0;i<90;i++){const big=i<10;FX.parts.push({x:Math.random()*1280,y:Math.random()*720,r:big?14+Math.random()*26:0.6+Math.random()*2.4,vx:4+Math.random()*10,vy:-(3+Math.random()*9),ph:Math.random()*6.28,sp:0.4+Math.random()*1.2,a:big?0.035+Math.random()*0.04:0.25+Math.random()*0.55,big})}}
+function fxSeed(){FX.parts=[];for(let i=0;i<150;i++){const big=i<14;FX.parts.push({x:Math.random()*1280,y:Math.random()*720,r:big?18+Math.random()*34:0.8+Math.random()*2.6,vx:4+Math.random()*10,vy:-(3+Math.random()*9),ph:Math.random()*6.28,sp:0.4+Math.random()*1.2,a:big?0.07+Math.random()*0.08:0.55+Math.random()*0.45,big})}}
 function fxTint(){const g=S.screen==='home'?homeList()[S.htab==='apps'?S.asel:S.sel]:null;FX.tint=g?[150+hue(g.t)%80,170,255-hue(g.t)%60]:[120,170,255]}
 function fxFrame(t){
  FX.raf=requestAnimationFrame(fxFrame);
  if(document.hidden)return;
  const dt=Math.min(0.05,(t-(FX.last||t))/1000);FX.last=t;
- fxc.clearRect(0,0,1280,720);
+ fxc.clearRect(0,0,1280,720);fxc.globalCompositeOperation='lighter';
  const [r,g,b]=FX.tint;
  for(const p of FX.parts){
   p.x+=p.vx*dt+Math.sin(t/1000*p.sp+p.ph)*0.15;p.y+=p.vy*dt;
@@ -785,6 +781,7 @@ function fxFrame(t){
   const grd=fxc.createRadialGradient(p.x,p.y,0,p.x,p.y,p.big?p.r:p.r*4);
   grd.addColorStop(0,`rgba(${r},${g},${b},${p.a*tw})`);grd.addColorStop(p.big?0.6:0.3,`rgba(${r},${g},${b},${p.a*tw*(p.big?0.5:0.35)})`);grd.addColorStop(1,`rgba(${r},${g},${b},0)`);
   fxc.fillStyle=grd;fxc.beginPath();fxc.arc(p.x,p.y,p.big?p.r:p.r*4,0,6.283);fxc.fill();
+  if(!p.big){fxc.fillStyle=`rgba(255,255,255,${Math.min(1,p.a*tw*1.1)})`;fxc.beginPath();fxc.arc(p.x,p.y,p.r*0.55,0,6.283);fxc.fill()}
  }
 }
 function fxApply(){
@@ -937,15 +934,19 @@ function libBtn(b){
 function openSheet(o){S.sheet={i:0,...o};render();if(o.input)setTimeout(()=>{const el=$('#sheetFld');if(el){openOsk(el)}},60)}
 function closeSheet(){S.sheet=null;closeOsk();render()}
 function renderSheet(){
- const o=$('#opt'),sh=S.sheet;if(!sh){o.style.display='none';o.innerHTML='';return}
+ const o=$('#opt'),sh=S.sheet;if(!sh){o.style.display='none';o.innerHTML='';o._html='';return}
  o.style.display='flex';
- o.innerHTML=`<div style="width:460px;padding:22px;border-radius:18px;background:#0e1424;border:1px solid rgba(255,255,255,.12);display:flex;flex-direction:column;gap:8px;margin-bottom:${sh.input?'300px':'0'}">
+ const html=`<div style="width:460px;padding:22px;border-radius:18px;background:#0e1424;border:1px solid rgba(255,255,255,.12);display:flex;flex-direction:column;gap:8px;margin-bottom:${sh.input?'300px':'0'}">
   <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px">${sh.bg?`<div style="width:48px;height:48px;border-radius:10px;flex:none;background:${sh.bg}"></div>`:''}<div style="min-width:0"><div class="h" style="font-size:18px;font-weight:700">${esc(sh.title||'')}</div>${sh.sub?`<div class="muted" style="font-size:13px">${esc(sh.sub)}</div>`:''}</div></div>
   ${sh.input?`<label class="gl" for="sheetFld" style="margin:0">${esc(sh.input.label||'')}</label><input id="sheetFld" class="fld" style="width:100%" ${sh.input.secret?'type="password"':''} autocomplete="off" spellcheck="false" value="${esc(sh.input.value||'')}" placeholder="${esc(sh.input.placeholder||'')}">`:''}
   ${sh.items.map((it,i)=>`<button class="btn ${i===sh.i?'sf':''}" style="text-align:left;border-radius:12px;height:48px;${it.danger?'color:#ff8a7a':''}" data-act="sheet:${i}">${esc(it.label)}</button>`).join('')}</div>`;
+ if(o._html===html)return;
+ o._html=html;o.innerHTML=html;
+ const f=$('#sheetFld');if(f&&sh.input&&sh.input.value!=null)f.value=sh.input.value;
+ if(f&&S.osk.open&&S.osk.el&&S.osk.el.id==='sheetFld'&&S.osk.el!==f){S.osk.el=f;f.classList.add('tgt')}
 }
 function sheetAct(i){const sh=S.sheet;if(!sh)return;const it=sh.items[i];if(!it)return;
- const v=sh.input?(($('#sheetFld')||{}).value||'').trim():null;
+ const f=$('#sheetFld'),v=sh.input?String((f?f.value:sh.input.value)||'').trim():null;
  S.sheet=null;closeOsk();render();if(it.fn)it.fn(v)}
 function sheetBtn(b){const sh=S.sheet,n=sh.items.length;
  if(b==='Up')sh.i=Math.max(0,sh.i-1);else if(b==='Down')sh.i=Math.min(n-1,sh.i+1);
@@ -1253,7 +1254,7 @@ async function spSearch(q){
   for(const t of (j.tracks&&j.tracks.items)||[])rows.push(trackRow(t,null));
   for(const a of (j.albums&&j.albums.items)||[])if(a)rows.push({kind:'album',id:a.id,uri:a.uri,t:a.name,a:'Album · '+(a.artists||[]).map(r=>r.name).join(', '),img:pickImg(a.images)});
   for(const p of (j.playlists&&j.playlists.items)||[])if(p)rows.push({kind:'playlist',id:p.id,uri:p.uri,t:p.name,a:'Playlist'+(p.owner&&p.owner.display_name?' · '+p.owner.display_name:''),img:pickImg(p.images)});
-  sp.res=rows.filter(Boolean);sp.i=sp.res.length?1:0;
+  sp.res=rows.filter(Boolean);if(!sp.res.length)sp.res=[{kind:'info',t:'No results for “'+q+'”',a:'Try a different spelling'}];sp.i=1;
  }catch(e){sp.err=e.message}
  sp.busy=false;renderQM();
 }
@@ -1348,60 +1349,6 @@ function galBtn(b){
  render();
 }
 
-/* ---------- controller test and extra buttons ---------- */
-const XNAMES=[[0x1000,'A'],[0x2000,'B'],[0x4000,'X'],[0x8000,'Y'],[0x0100,'LB'],[0x0200,'RB'],[0x0020,'View'],[0x0010,'Menu'],[0x0040,'L3'],[0x0080,'R3'],[0x0001,'Up'],[0x0002,'Down'],[0x0004,'Left'],[0x0008,'Right'],[0x0400,'Guide'],[0x0800,'Unknown 0x0800']];
-const ACTIONS=[['switcher','App switcher'],['screenshot','Screenshot'],['record','Record clip (Game Bar)'],['quickmenu','Quick menu'],['home','Console home'],['desktop','Show desktop'],['keyboard','On-screen keyboard'],['playpause','Play / pause music'],['mute','Mute']];
-let ctlT;
-function openCtl(){S.ctl={i:0,listen:0,data:null,seen:{},log:[]};render();clearInterval(ctlT);ctlT=setInterval(pollCtl,80)}
-function closeCtl(){clearInterval(ctlT);S.ctl=null;render()}
-async function pollCtl(){
- const C=S.ctl;if(!C){clearInterval(ctlT);return}
- const d=NATIVE?await invoke('controller_debug'):{xinput:null,raw:[]};if(!S.ctl)return;
- const prev=C.data;C.data=d;
- (d.raw||[]).forEach((p,pi)=>p.buttons.forEach((on,bi)=>{const was=prev&&prev.raw&&prev.raw[pi]&&prev.raw[pi].buttons[bi];if(on&&!was){C.seen[pi+':'+bi]=1;C.log.unshift(`${p.name||'Controller'}: raw button ${bi}`);C.log=C.log.slice(0,6);
-  if(C.listen&&pi===0&&Date.now()>C.listenAt){const slot=C.listen;C.listen=0;pickAction(slot,bi)}}}));
- const x=d.xinput,px=prev&&prev.xinput;if(x&&px){for(const [mask,name] of XNAMES)if((x.buttons&mask)&&!(px.buttons&mask)){C.log.unshift('Xbox: '+name);C.log=C.log.slice(0,6)}}
- renderCtl();
-}
-function pickAction(slot,idx){
- openSheet({title:'Extra button '+slot,sub:'Raw button '+idx+' — what should it do?',items:ACTIONS.map(([k,l])=>({label:l,fn:()=>{const ex=(PREF.extra||[]).filter(e=>e.slot!==slot&&e.idx!==idx);ex.push({slot,idx,action:k});PREF.extra=ex;savePref();pushExtra();toast('Extra button '+slot+': '+l)}})).concat([{label:'Cancel'}])});
-}
-function pushExtra(){invoke('set_extra_buttons',{map:(PREF.extra||[]).map(e=>[e.idx,e.action])})}
-const ctlRows=()=>[['assign1','Assign extra button 1'],['assign2','Assign extra button 2'],['clear','Clear extra buttons'],['close','Close']];
-function ctlAct(k){
- const C=S.ctl;
- if(k==='close'){closeCtl();return}
- if(k==='clear'){PREF.extra=[];savePref();pushExtra();toast('Extra buttons cleared');renderCtl();return}
- C.listen=k==='assign1'?1:2;C.listenAt=Date.now()+700;renderCtl();
-}
-function renderCtl(){
- const el=$('#ctl'),C=S.ctl;if(!C){el.style.display='none';el.innerHTML='';return}
- el.style.display='block';const d=C.data||{},x=d.xinput;
- const chip=(on,l)=>`<span style="padding:6px 10px;border-radius:14px;font-size:12px;font-weight:600;background:${on?'#5B9BFF':'rgba(255,255,255,.08)'};color:${on?'#05070d':'#c9d2e6'}">${esc(l)}</span>`;
- const maps=(PREF.extra||[]).map(e=>'Extra button '+e.slot+' (raw '+e.idx+'): '+((ACTIONS.find(a=>a[0]===e.action)||[])[1]||e.action)).join(' · ')||'No extra buttons set';
- el.innerHTML=`<div style="position:absolute;inset:0;background:#070b16;padding:28px 48px;display:flex;gap:36px">
-  <div style="flex:1;display:flex;flex-direction:column;gap:14px;min-width:0">
-   <div class="h" style="font-size:26px;font-weight:700">Controller test</div>
-   <p class="muted" style="margin:0;font-size:14px">Press any button and watch what lights up. If your extra buttons light up anything under “Raw buttons”, they can be assigned.</p>
-   <div class="gl" style="margin:6px 0 0">Xbox controller interface ${x?'(slot '+x.slot+')':'— no controller'}</div>
-   <div style="display:flex;flex-wrap:wrap;gap:6px">${XNAMES.map(([m,n])=>chip(x&&(x.buttons&m),n)).join('')}${chip(x&&x.lt>100,'LT')}${chip(x&&x.rt>100,'RT')}</div>
-   ${(d.raw||[]).map((p,pi)=>`<div class="gl" style="margin:8px 0 0">Raw buttons · ${esc(p.name||'Controller')} (VID ${p.vid.toString(16)}, PID ${p.pid.toString(16)}) · ${p.buttons.length} buttons</div><div style="display:flex;flex-wrap:wrap;gap:6px">${p.buttons.map((on,bi)=>chip(on,String(bi)+(C.seen[pi+':'+bi]?'·':''))).join('')}${(p.switches||[]).map((v,si)=>chip(v!==0,'Hat '+si+': '+v)).join('')}</div>`).join('')||'<div class="gl" style="margin:8px 0 0">Raw buttons · nothing found through this interface</div>'}
-   <div class="gl" style="margin:8px 0 0">Last presses</div><div style="font-size:13px;color:#c9d2e6;line-height:1.6">${C.log.map(esc).join('<br>')||'—'}</div>
-  </div>
-  <div style="width:340px;display:flex;flex-direction:column;gap:8px">
-   ${C.listen?`<div style="padding:14px;border-radius:12px;background:rgba(91,155,255,.2);font-size:14px">Press the extra button you want to use as button ${C.listen} now…</div>`:''}
-   ${ctlRows().map(([k,l],i)=>`<button class="btn ${C.i===i?'sf':''}" style="text-align:left;border-radius:12px;height:48px" data-act="ctlrow:${k}">${l}</button>`).join('')}
-   <p class="muted" style="font-size:13px;line-height:1.5">${esc(maps)}</p>
-   <div class="hint" style="font-size:12px"><span><b>↑↓</b>Move</span><span><b>A</b>Select</span><span><b>B</b>Close</span></div>
-  </div></div>`;
-}
-function ctlBtn(b){
- const C=S.ctl;if(C.listen)return;
- if(b==='B'){closeCtl();return}
- if(b==='Up')C.i=Math.max(0,C.i-1);else if(b==='Down')C.i=Math.min(ctlRows().length-1,C.i+1);else if(b==='A'){ctlAct(ctlRows()[C.i][0]);return}
- renderCtl();
-}
-
 /* ---------- updates ---------- */
 async function updCheck(){
  if(!NATIVE){S.upd={err:'Updates work in the Windows app'};render();return}
@@ -1444,7 +1391,7 @@ if(NATIVE){
  ev.listen('padstatus',e=>{S.pad=e.payload?'Xbox-style controller':'';if(S.screen==='home')render()});
  ev.listen('spotify_code',e=>spFinish(e.payload||{}));
  ev.listen('update-progress',e=>{const p=e.payload||{};if(S.upd){S.upd.pct=p.total?p.done/p.total*100:null;S.upd.busy=p.total&&p.done>=p.total?'Installing… Console Mode will reopen':'Downloading…';if(S.screen==='settings')render()}});
- invoke('app_build').then(b=>{S.build=b});pushExtra();
+ invoke('app_build').then(b=>{S.build=b});invoke('set_extra_buttons',{map:[]});
  document.addEventListener('mousemove',e=>{S.ct=Date.now();S.mx=e.clientX;S.my=e.clientY;hover()});
  $('#cur').style.display='none';$('#chip').style.display='none';
  TABS=[['All games',()=>true],['Favourites',g=>!!FAV[g.id]],['Steam',g=>g.s==='Steam'],['Epic',g=>g.s==='Epic'],['GOG',g=>g.s==='GOG'],['Added',g=>g.s==='Added'],['Never played',g=>!g.ts]];
