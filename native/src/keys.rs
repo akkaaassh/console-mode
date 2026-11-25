@@ -32,7 +32,7 @@ fn send(inputs: &[INPUT]) {
 fn key_input(vk: u16, up: bool) -> INPUT {
     let mut flags: u32 = 0;
     // Media and Windows keys are "extended" keys.
-    if matches!(vk, 0x5B | 0x21..=0x28 | 0x2D | 0x2E | 0xA6..=0xB3) {
+    if matches!(vk, 0x5B | 0x21..=0x28 | 0x2C | 0x2D | 0x2E | 0xA6..=0xB3) {
         flags |= KEYEVENTF_EXTENDEDKEY;
     }
     if up {
@@ -117,6 +117,11 @@ pub fn type_text(text: &str) {
         }
     }
     send(&v);
+}
+
+/// Windows' "screenshot to Pictures\\Screenshots" shortcut (Win + Print Screen).
+pub fn screenshot() {
+    combo(&[VK_WIN, 0x2C]);
 }
 
 /// Windows Game Bar "record what happened" shortcut.

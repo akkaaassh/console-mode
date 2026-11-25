@@ -104,3 +104,68 @@ mod tests {
         assert_eq!(super::encode("Baldur's Gate 3"), "Baldur%27s%20Gate%203");
     }
 }
+
+#[derive(Serialize, Clone, Debug)]
+pub struct Match {
+    pub id: i64,
+    pub name: String,
+    pub year: Option<i64>,
+}
+
+fn sgdb_get(key: &str, path: &str) -> Result<Value, String> {
+    let url = format!("https://www.steamgriddb.com/api/v2{path}");
+    match agent().get(&url).set("Authorization", &format!("Bearer {key}")).call() {
+        Ok(r) => r.into_json::<Value>().map_err(|e| e.to_string()),
+        Err(ureq::Error::Status(401, _)) => Err("SteamGridDB didn't accept the API key".into()),
+        Err(ureq::Error::Status(404, _)) => Ok(Value::Null),
+        Err(e) => Err(format!("Couldn't reach SteamGridDB ({e})")),
+    }
+}
+
+/// Games on SteamGridDB matching a name, for picking the right one.
+pub fn search(key: &str, query: &str) -> Result<Vec<Match>, String> {
+    let v = sgdb_get(key, &format!("/search/autocomplete/{}", encode(query)))?;
+    Ok(v.get("data")
+        .and_then(|d| d.as_array())
+        .map(|a| {
+            a.iter()
+                .take(12)
+                .filter_map(|g| {
+                    Some(Match {
+                        id: g.get("id")?.as_i64()?,
+                        name: g.get("name")?.as_str()?.to_string(),
+                        year: g.get("release_date").and_then(|r| r.as_i64()).map(|t| 1970 + t / 31_556_952),
+                    })
+                })
+                .collect()
+        })
+        .unwrap_or_default())
+}
+
+#[derive(Serialize, Clone, Debug)]
+pub struct Image {
+    pub url: String,
+    pub thumb: String,
+}
+
+/// All images of one kind ("grids", "heroes", "logos", "icons") for a SteamGridDB game id.
+pub fn images(key: &str, id: i64, kind: &str) -> Result<Vec<Image>, String> {
+    let q = match kind {
+        "grids" => "?dimensions=600x900&types=static",
+        _ => "?types=static",
+    };
+    let v = sgdb_get(key, &format!("/{kind}/game/{id}{q}"))?;
+    Ok(v.get("data")
+        .and_then(|d| d.as_array())
+        .map(|a| {
+            a.iter()
+                .take(30)
+                .filter_map(|x| {
+                    let url = x.get("url")?.as_str()?.to_string();
+                    let thumb = x.get("thumb").and_then(|t| t.as_str()).unwrap_or(&url).to_string();
+                    Some(Image { url, thumb })
+                })
+                .collect()
+        })
+        .unwrap_or_default())
+}

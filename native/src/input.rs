@@ -16,7 +16,7 @@ use crate::keys;
 use crate::util::wide;
 use crate::window;
 use std::sync::atomic::{AtomicBool, AtomicIsize, AtomicU32, AtomicU8, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use windows_sys::Win32::System::LibraryLoader::{GetProcAddress, LoadLibraryW};
 use windows_sys::Win32::UI::Input::XboxController::XINPUT_STATE;
@@ -42,6 +42,10 @@ pub struct Shared {
     pub cursor_speed: AtomicU32,
     /// Left stick on the desktop: true = moves the pointer, false = scrolls.
     pub left_stick_mouse: AtomicBool,
+    /// True while the app switcher is on screen (buttons drive it).
+    pub switcher_open: AtomicBool,
+    /// Extra controller buttons (raw button index) and the action each one runs.
+    pub extra: Mutex<Vec<(usize, String)>>,
 }
 
 impl Default for Shared {
@@ -55,6 +59,8 @@ impl Default for Shared {
             game_hwnd: AtomicIsize::new(0),
             cursor_speed: AtomicU32::new(100),
             left_stick_mouse: AtomicBool::new(false),
+            switcher_open: AtomicBool::new(false),
+            extra: Mutex::new(Vec::new()),
         }
     }
 }
@@ -75,6 +81,10 @@ pub enum PadEvent {
     Clicked,
     /// The game window we were tracking has closed.
     GameEnded,
+    /// App switcher: "open", "commit", "cancel", or a button name to move or close.
+    Switcher(&'static str),
+    /// An extra controller button mapped to an action.
+    Extra(String),
 }
 
 /// Apps that may go full screen but should still get the controller pointer.
@@ -220,6 +230,9 @@ fn run<F: Fn(PadEvent)>(shared: Arc<Shared>, cb: F) {
     let mut chord_used = false;
     let mut acc = (0.0f32, 0.0f32);
     let mut scroll_acc = (0.0f32, 0.0f32);
+    let mut view_at: Option<Instant> = None;
+    let mut sw_hold = false;
+    let mut raw_prev: Vec<bool> = Vec::new();
     let mut last = Instant::now();
     let mut left_down = false;
     let mut mode = MODE_CONSOLE;
@@ -351,8 +364,49 @@ fn run<F: Fn(PadEvent)>(shared: Arc<Shared>, cb: F) {
             cb(PadEvent::Guide);
         }
 
+        // Hold View (about half a second) for the app switcher; a quick tap still does what View did before.
+        if pressed & B_VIEW != 0 {
+            view_at = Some(now);
+        }
+        if cur & B_VIEW != 0 && cur & B_MENU == 0 && !chord_used && !sw_hold {
+            if let Some(t) = view_at {
+                if now.duration_since(t) > Duration::from_millis(450) {
+                    sw_hold = true;
+                    cb(PadEvent::Switcher("open"));
+                }
+            }
+        }
+        let mut sw_released = false;
+        if released & B_VIEW != 0 {
+            view_at = None;
+            if sw_hold {
+                sw_hold = false;
+                sw_released = true;
+                if shared.switcher_open.load(Ordering::SeqCst) {
+                    cb(PadEvent::Switcher("commit"));
+                }
+            }
+        }
+        let switcher = shared.switcher_open.load(Ordering::SeqCst) || sw_hold;
+
+        // Extra buttons that only show up through Windows' raw game-controller interface.
+        let has_extra = shared.extra.lock().map(|e| !e.is_empty()).unwrap_or(false);
+        if has_extra {
+            if let Some(raw) = crate::winrt::raw_buttons() {
+                let map = shared.extra.lock().map(|e| e.clone()).unwrap_or_default();
+                for (idx, action) in map {
+                    let now_on = raw.get(idx).copied().unwrap_or(false);
+                    let was_on = raw_prev.get(idx).copied().unwrap_or(false);
+                    if now_on && !was_on {
+                        cb(PadEvent::Extra(action));
+                    }
+                }
+                raw_prev = raw;
+            }
+        }
+
         // Desktop clicking follows A down/up so dragging works.
-        if mode == MODE_DESKTOP && !osk && pressed & B_A != 0 {
+        if mode == MODE_DESKTOP && !osk && !switcher && pressed & B_A != 0 {
             keys::mouse_left(true);
             left_down = true;
         }
@@ -367,8 +421,8 @@ fn run<F: Fn(PadEvent)>(shared: Arc<Shared>, cb: F) {
                 continue;
             }
             let fire = if bit == B_VIEW || bit == B_MENU {
-                // Fire on release so View + Menu can be a chord.
-                released & bit != 0 && !chord_used
+                // Fire on release so View + Menu can be a chord (and View can be held).
+                released & bit != 0 && !chord_used && !(bit == B_VIEW && sw_released)
             } else if pressed & bit != 0 {
                 if bit & DIRS != 0 {
                     repeat_at[i - 12] = Some(now + Duration::from_millis(380));
@@ -386,6 +440,15 @@ fn run<F: Fn(PadEvent)>(shared: Arc<Shared>, cb: F) {
                 false
             };
             if !fire {
+                continue;
+            }
+            if switcher {
+                match name {
+                    "A" => cb(PadEvent::Switcher("commit")),
+                    "B" => cb(PadEvent::Switcher("cancel")),
+                    "Left" | "Right" | "Up" | "Down" | "LB" | "RB" | "X" => cb(PadEvent::Switcher(name)),
+                    _ => {}
+                }
                 continue;
             }
             match mode {
@@ -412,4 +475,38 @@ fn run<F: Fn(PadEvent)>(shared: Arc<Shared>, cb: F) {
         }
         prev = cur;
     }
+}
+
+/// Raw XInput reading of the first connected pad, for the controller test screen.
+#[derive(serde::Serialize, Clone, Debug)]
+pub struct XSnapshot {
+    pub slot: u32,
+    pub buttons: u16,
+    pub lt: u8,
+    pub rt: u8,
+    pub lx: i16,
+    pub ly: i16,
+    pub rx: i16,
+    pub ry: i16,
+}
+
+pub fn xinput_snapshot() -> Option<XSnapshot> {
+    let get = load_get_state()?;
+    for i in 0..4u32 {
+        let mut st: XINPUT_STATE = unsafe { std::mem::zeroed() };
+        if (unsafe { get(i, &mut st) }) == 0 {
+            let g = st.Gamepad;
+            return Some(XSnapshot {
+                slot: i,
+                buttons: g.wButtons as u16,
+                lt: g.bLeftTrigger,
+                rt: g.bRightTrigger,
+                lx: g.sThumbLX,
+                ly: g.sThumbLY,
+                rx: g.sThumbRX,
+                ry: g.sThumbRY,
+            });
+        }
+    }
+    None
 }

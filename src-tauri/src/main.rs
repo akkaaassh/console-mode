@@ -4,9 +4,11 @@
 use cm_native as native;
 use native::input::{PadEvent, Shared, MODE_CONSOLE, MODE_DESKTOP, MODE_GAME};
 use std::io::{Read, Write};
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
+use tauri::menu::{Menu, MenuItem};
+use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, State, WebviewUrl, WebviewWindowBuilder};
 use tauri_plugin_autostart::{MacosLauncher, ManagerExt};
 use tauri_plugin_dialog::DialogExt;
@@ -14,6 +16,31 @@ use tauri_plugin_dialog::DialogExt;
 struct AppState {
     shared: Arc<Shared>,
     stats: Mutex<native::stats::Stats>,
+    /// Windows shown in the app switcher, and the selected one.
+    sw: Mutex<Vec<native::capture::Win>>,
+    sw_sel: AtomicUsize,
+    sw_hwnd: std::sync::atomic::AtomicIsize,
+}
+
+/// This build's number (set by the GitHub build), for update checks.
+const BUILD: u32 = match option_env!("CM_BUILD") {
+    Some(_) => parse_build(),
+    None => 0,
+};
+const fn parse_build() -> u32 {
+    let b = match option_env!("CM_BUILD") {
+        Some(s) => s.as_bytes(),
+        None => b"0",
+    };
+    let mut n = 0u32;
+    let mut i = 0;
+    while i < b.len() {
+        if b[i] >= b'0' && b[i] <= b'9' {
+            n = n * 10 + (b[i] - b'0') as u32;
+        }
+        i += 1;
+    }
+    n
 }
 
 fn shared(app: &AppHandle) -> Arc<Shared> {
@@ -433,6 +460,246 @@ fn set_home_screen(app: AppHandle, on: bool) {
     native::window::set_home_screen(shared(&app).our_hwnd.load(Ordering::SeqCst), on);
 }
 
+// ---------- app switcher ----------
+
+fn sw_emit(app: &AppHandle) {
+    let st = app.state::<AppState>();
+    let list = st.sw.lock().unwrap().clone();
+    let sel = st.sw_sel.load(Ordering::SeqCst);
+    let _ = app.emit_to("switcher", "sw-state", serde_json::json!({ "list": list, "sel": sel }));
+}
+
+fn sw_open(app: &AppHandle) {
+    let s = shared(app);
+    if s.switcher_open.swap(true, Ordering::SeqCst) {
+        return;
+    }
+    hide_osk(app);
+    let st = app.state::<AppState>();
+    let sw_h = st.sw_hwnd.load(Ordering::SeqCst);
+    let ours = s.our_hwnd.load(Ordering::SeqCst);
+    let mut list = native::capture::windows(&[sw_h, s.osk_hwnd.load(Ordering::SeqCst)]);
+    // The console itself is hidden from Alt+Tab in home-screen mode; keep it in our switcher.
+    if native::window::is_visible(ours) && !list.iter().any(|w| w.hwnd == ours) {
+        let fg = native::window::foreground();
+        let pos = if fg == ours { 0 } else { list.len().min(1) };
+        list.insert(pos, native::capture::Win { hwnd: ours, title: "Console Mode".into(), process: "console-mode.exe".into(), icon: None });
+    }
+    let sel = if list.len() > 1 { 1 } else { 0 };
+    *st.sw.lock().unwrap() = list.clone();
+    st.sw_sel.store(sel, Ordering::SeqCst);
+    if let Some(w) = app.get_webview_window("switcher") {
+        let (mx, my, mw, mh) = native::window::monitor_rect(native::window::foreground());
+        let _ = w.set_size(PhysicalSize::new(mw as u32, mh as u32));
+        let _ = w.set_position(PhysicalPosition::new(mx, my));
+    }
+    native::window::show_no_activate(sw_h);
+    sw_emit(app);
+    let app2 = app.clone();
+    std::thread::spawn(move || {
+        for w in list {
+            let icon = if w.hwnd == ours { None } else { native::capture::window_icon(w.hwnd) };
+            let thumb = native::capture::window_thumb(w.hwnd, 360);
+            let _ = app2.emit_to("switcher", "sw-item", serde_json::json!({ "hwnd": w.hwnd, "icon": icon, "thumb": thumb }));
+        }
+    });
+}
+
+fn sw_close(app: &AppHandle) {
+    let st = app.state::<AppState>();
+    shared(app).switcher_open.store(false, Ordering::SeqCst);
+    native::window::hide(st.sw_hwnd.load(Ordering::SeqCst));
+}
+
+fn sw_key(app: &AppHandle, key: &str) {
+    let st = app.state::<AppState>();
+    match key {
+        "open" => sw_open(app),
+        "cancel" => sw_close(app),
+        "commit" => {
+            let list = st.sw.lock().unwrap().clone();
+            let sel = st.sw_sel.load(Ordering::SeqCst);
+            sw_close(app);
+            if let Some(w) = list.get(sel) {
+                if w.hwnd == shared(app).our_hwnd.load(Ordering::SeqCst) {
+                    bring_front(app);
+                } else {
+                    native::window::focus(w.hwnd);
+                }
+            }
+        }
+        "X" => {
+            let mut list = st.sw.lock().unwrap();
+            let sel = st.sw_sel.load(Ordering::SeqCst);
+            let ours = shared(app).our_hwnd.load(Ordering::SeqCst);
+            if let Some(w) = list.get(sel).cloned() {
+                if w.hwnd != ours && native::window::close(w.hwnd) {
+                    list.remove(sel);
+                    st.sw_sel.store(sel.min(list.len().saturating_sub(1)), Ordering::SeqCst);
+                }
+            }
+            drop(list);
+            sw_emit(app);
+        }
+        k => {
+            let n = st.sw.lock().unwrap().len().max(1);
+            let sel = st.sw_sel.load(Ordering::SeqCst);
+            let next = match k {
+                "Left" | "Up" | "LB" => (sel + n - 1) % n,
+                _ => (sel + 1) % n,
+            };
+            st.sw_sel.store(next, Ordering::SeqCst);
+            sw_emit(app);
+        }
+    }
+}
+
+#[tauri::command]
+fn switcher_pick(app: AppHandle, index: usize) {
+    app.state::<AppState>().sw_sel.store(index, Ordering::SeqCst);
+    sw_key(&app, "commit");
+}
+
+#[tauri::command]
+fn switcher_open(app: AppHandle) {
+    sw_open(&app);
+}
+
+// ---------- extra buttons, controller test ----------
+
+fn run_action(app: &AppHandle, action: &str) {
+    match action {
+        "switcher" => {
+            if shared(app).switcher_open.load(Ordering::SeqCst) {
+                sw_key(app, "commit")
+            } else {
+                sw_open(app)
+            }
+        }
+        "quickmenu" => handle_pad(app, PadEvent::Guide),
+        "home" => handle_pad(app, PadEvent::Desktop("home")),
+        "desktop" => {
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.minimize();
+            }
+        }
+        "keyboard" => handle_pad(app, PadEvent::Desktop("keyboard")),
+        "screenshot" => native::keys::screenshot(),
+        "record" => native::keys::record_clip(),
+        "mute" => {
+            native::media::key("mute");
+        }
+        "playpause" => {
+            if !native::winrt::control("play_pause") {
+                native::media::key("play_pause");
+            }
+        }
+        _ => {}
+    }
+}
+
+#[tauri::command]
+fn controller_debug() -> serde_json::Value {
+    serde_json::json!({ "xinput": native::input::xinput_snapshot(), "raw": native::winrt::raw_pads() })
+}
+
+#[tauri::command]
+fn set_extra_buttons(state: State<AppState>, map: Vec<(usize, String)>) {
+    *state.shared.extra.lock().unwrap() = map;
+}
+
+// ---------- updates ----------
+
+#[tauri::command]
+async fn update_check() -> Result<serde_json::Value, String> {
+    let r = native::update::latest()?;
+    Ok(serde_json::json!({ "current": BUILD, "latest": r, "newer": r.build > BUILD }))
+}
+
+#[tauri::command]
+async fn update_install(app: AppHandle, url: String) -> Result<(), String> {
+    let a2 = app.clone();
+    let path = native::update::download(&url, move |done, total| {
+        let _ = a2.emit_to("main", "update-progress", serde_json::json!({ "done": done, "total": total }));
+    })?;
+    native::update::install_and_restart(&path)?;
+    std::thread::sleep(Duration::from_millis(400));
+    app.exit(0);
+    Ok(())
+}
+
+#[tauri::command]
+fn app_build() -> u32 {
+    BUILD
+}
+
+// ---------- icons, web apps, artwork picking, tray ----------
+
+#[tauri::command]
+async fn app_icon(app_id: String) -> Option<String> {
+    native::winrt::shell_icon(&format!("shell:AppsFolder\\{app_id}"), 128)
+}
+
+/// Icon of the app that is playing media (by its Windows app id).
+#[tauri::command]
+async fn source_icon(app_id: String) -> Option<String> {
+    if let Some(i) = native::winrt::shell_icon(&format!("shell:AppsFolder\\{app_id}"), 96) {
+        return Some(i);
+    }
+    let want = app_id.to_lowercase();
+    let want = if want.ends_with(".exe") { want } else { format!("{want}.exe") };
+    let alias = match want.as_str() {
+        "msedge.exe" | "microsoftedge.exe" => "msedge.exe".to_string(),
+        w => w.to_string(),
+    };
+    for w in native::capture::windows(&[]) {
+        if w.process == alias {
+            if let Some(p) = native::window::process_path(w.hwnd) {
+                if let Some(i) = native::winrt::shell_icon(&p, 96) {
+                    return Some(i);
+                }
+            }
+            return native::capture::window_icon(w.hwnd);
+        }
+    }
+    None
+}
+
+#[tauri::command]
+fn open_webapp(url: String, fullscreen: bool) -> bool {
+    native::webapp::open(&url, fullscreen)
+}
+
+#[tauri::command]
+async fn art_search(key: String, query: String) -> Result<Vec<native::art::Match>, String> {
+    native::art::search(&key, &query)
+}
+
+#[tauri::command]
+async fn art_images(key: String, id: i64, kind: String) -> Result<Vec<native::art::Image>, String> {
+    native::art::images(&key, id, &kind)
+}
+
+#[tauri::command]
+async fn pick_image(app: AppHandle) -> Option<String> {
+    app.dialog()
+        .file()
+        .set_title("Choose an image")
+        .add_filter("Images", &["png", "jpg", "jpeg", "webp", "gif"])
+        .blocking_pick_file()
+        .map(|p| p.to_string())
+}
+
+/// Closes the console but keeps Console Mode running in the system tray:
+/// the controller pointer, keyboard and Guide-to-reopen keep working.
+#[tauri::command]
+fn hide_to_tray(app: AppHandle) {
+    if let Some(w) = app.get_webview_window("main") {
+        let _ = w.set_fullscreen(false);
+        let _ = w.hide();
+    }
+}
+
 #[tauri::command]
 fn exit_app(app: AppHandle) {
     app.exit(0);
@@ -472,6 +739,8 @@ fn handle_pad(app: &AppHandle, ev: PadEvent) {
                 }
             });
         }
+        PadEvent::Switcher(k) => sw_key(app, k),
+        PadEvent::Extra(a) => run_action(app, &a),
         PadEvent::GameEnded => {
             let _ = app.emit_to("main", "game_ended", ());
         }
@@ -492,7 +761,13 @@ fn main() {
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| bring_front(app)))
         .plugin(tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, Some(vec!["--autostart"])))
         .plugin(tauri_plugin_dialog::init())
-        .manage(AppState { shared: shared_state, stats: Mutex::new(native::stats::Stats::new()) })
+        .manage(AppState {
+            shared: shared_state,
+            stats: Mutex::new(native::stats::Stats::new()),
+            sw: Mutex::new(Vec::new()),
+            sw_sel: AtomicUsize::new(0),
+            sw_hwnd: std::sync::atomic::AtomicIsize::new(0),
+        })
         .setup(move |app| {
             #[cfg(windows)]
             if let Some(w) = app.get_webview_window("main") {
@@ -520,6 +795,49 @@ fn main() {
                 setup_shared.osk_hwnd.store(h, Ordering::SeqCst);
             }
             let _ = osk;
+
+            // The app switcher: a see-through, never-focused window over everything.
+            let sw = WebviewWindowBuilder::new(app, "switcher", WebviewUrl::App("switcher.html".into()))
+                .title("Switch apps")
+                .decorations(false)
+                .transparent(true)
+                .always_on_top(true)
+                .skip_taskbar(true)
+                .resizable(false)
+                .focused(false)
+                .visible(false)
+                .inner_size(1280.0, 720.0)
+                .build()?;
+            #[cfg(windows)]
+            if let Ok(h) = sw.hwnd() {
+                let h = h.0 as isize;
+                native::window::make_no_activate(h);
+                app.state::<AppState>().sw_hwnd.store(h, Ordering::SeqCst);
+            }
+            let _ = sw;
+
+            // Tray icon: reopen the console, or quit completely.
+            let open_i = MenuItem::with_id(app, "open", "Open Console Mode", true, None::<&str>)?;
+            let quit_i = MenuItem::with_id(app, "quit", "Quit completely", true, None::<&str>)?;
+            let menu = Menu::with_items(app, &[&open_i, &quit_i])?;
+            let mut tray = TrayIconBuilder::with_id("main")
+                .tooltip("Console Mode")
+                .menu(&menu)
+                .show_menu_on_left_click(false)
+                .on_menu_event(|app, e| match e.id.as_ref() {
+                    "open" => bring_front(app),
+                    "quit" => app.exit(0),
+                    _ => {}
+                })
+                .on_tray_icon_event(|tray, e| {
+                    if let TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, .. } = e {
+                        bring_front(tray.app_handle());
+                    }
+                });
+            if let Some(icon) = app.default_window_icon() {
+                tray = tray.icon(icon.clone());
+            }
+            tray.build(app)?;
 
             // Startup apps open sooner when Windows' startup delay is off.
             if app.autolaunch().is_enabled().unwrap_or(false) {
@@ -573,6 +891,20 @@ fn main() {
             art_steam,
             art_sgdb,
             set_home_screen,
+            switcher_pick,
+            switcher_open,
+            controller_debug,
+            set_extra_buttons,
+            update_check,
+            update_install,
+            app_build,
+            app_icon,
+            source_icon,
+            open_webapp,
+            art_search,
+            art_images,
+            pick_image,
+            hide_to_tray,
             exit_app
         ])
         .run(tauri::generate_context!())

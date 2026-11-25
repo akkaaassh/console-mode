@@ -4,7 +4,8 @@
   "description": "Permissions for the console and keyboard windows",
   "windows": [
     "main",
-    "osk"
+    "osk",
+    "switcher"
   ],
   "permissions": [
     "core:default"

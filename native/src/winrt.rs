@@ -14,6 +14,8 @@ pub struct MediaInfo {
     pub album: String,
     /// App that is playing, e.g. "Spotify", "Browser".
     pub source: String,
+    /// Windows' id for that app (for its icon).
+    pub app: String,
     pub playing: bool,
     /// Seconds.
     pub position: f64,
@@ -103,6 +105,7 @@ mod imp {
             artist: props.Artist().map(|h| h.to_string()).unwrap_or_default(),
             album: props.AlbumTitle().map(|h| h.to_string()).unwrap_or_default(),
             source: s.SourceAppUserModelId().map(|h| source_name(&h.to_string())).unwrap_or_default(),
+            app: s.SourceAppUserModelId().map(|h| h.to_string()).unwrap_or_default(),
             playing,
             position,
             duration,
@@ -238,6 +241,97 @@ mod radios {
 }
 #[cfg(windows)]
 pub use radios::{radio, set_radio};
+
+#[derive(Serialize, Clone, Debug, Default)]
+pub struct RawPad {
+    pub name: String,
+    pub vid: u16,
+    pub pid: u16,
+    pub buttons: Vec<bool>,
+    pub switches: Vec<i32>,
+    pub axes: Vec<f64>,
+}
+
+#[cfg(windows)]
+mod rawpad {
+    use super::RawPad;
+    use windows::Gaming::Input::{GameControllerSwitchPosition, RawGameController};
+    pub fn pads() -> Vec<RawPad> {
+        let Ok(list) = RawGameController::RawGameControllers() else { return vec![] };
+        let n = list.Size().unwrap_or(0);
+        (0..n)
+            .filter_map(|i| list.GetAt(i).ok())
+            .map(|c| {
+                let nb = c.ButtonCount().unwrap_or(0).max(0) as usize;
+                let ns = c.SwitchCount().unwrap_or(0).max(0) as usize;
+                let na = c.AxisCount().unwrap_or(0).max(0) as usize;
+                let mut b = vec![false; nb];
+                let mut sw = vec![GameControllerSwitchPosition::Center; ns];
+                let mut ax = vec![0f64; na];
+                let _ = c.GetCurrentReading(&mut b, &mut sw, &mut ax);
+                RawPad {
+                    name: c.DisplayName().map(|h| h.to_string()).unwrap_or_default(),
+                    vid: c.HardwareVendorId().unwrap_or(0),
+                    pid: c.HardwareProductId().unwrap_or(0),
+                    buttons: b,
+                    switches: sw.iter().map(|p| p.0).collect(),
+                    axes: ax.iter().map(|v| (v * 100.0).round() / 100.0).collect(),
+                }
+            })
+            .collect()
+    }
+}
+
+/// Every controller Windows can see through its general game-controller interface, with raw readings.
+pub fn raw_pads() -> Vec<RawPad> {
+    #[cfg(windows)]
+    {
+        rawpad::pads()
+    }
+    #[cfg(not(windows))]
+    {
+        Vec::new()
+    }
+}
+
+/// Raw buttons of the first controller (used for extra-button mapping).
+pub fn raw_buttons() -> Option<Vec<bool>> {
+    raw_pads().into_iter().next().map(|p| p.buttons)
+}
+
+#[cfg(windows)]
+mod icons {
+    use windows::core::{Interface, HSTRING};
+    use windows::Win32::Foundation::SIZE;
+    use windows::Win32::System::Com::{CoInitializeEx, COINIT_MULTITHREADED};
+    use windows::Win32::UI::Shell::{IShellItemImageFactory, SHCreateItemFromParsingName, SIIGBF_ICONONLY};
+    /// Icon of anything the shell can name: "shell:AppsFolder\\<AppID>" for Start-menu apps, or a file path.
+    pub fn shell_icon(path: &str, size: i32) -> Option<String> {
+        unsafe {
+            let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
+            let f: IShellItemImageFactory = SHCreateItemFromParsingName(&HSTRING::from(path), None).ok()?;
+            let hbm = f.GetImage(SIZE { cx: size, cy: size }, SIIGBF_ICONONLY).ok()?;
+            let raw = hbm.0 as isize;
+            let out = crate::capture::bitmap_rgba(raw as _, false).and_then(|(w, h, px)| crate::capture::png_url(w, h, &px));
+            let _ = windows::Win32::Graphics::Gdi::DeleteObject(hbm.into());
+            let _ = f.as_raw();
+            out
+        }
+    }
+}
+
+/// Icon for a Start-menu app (by AppID) or a program file, as a PNG data: URL.
+pub fn shell_icon(path: &str, size: i32) -> Option<String> {
+    #[cfg(windows)]
+    {
+        icons::shell_icon(path, size)
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (path, size);
+        None
+    }
+}
 
 #[cfg(not(windows))]
 mod imp {

@@ -91,6 +91,26 @@ pub fn process_name(h: isize) -> String {
     }
 }
 
+/// Full path of the program that owns a window.
+pub fn process_path(h: isize) -> Option<String> {
+    if !exists(h) {
+        return None;
+    }
+    unsafe {
+        let mut pid = 0u32;
+        GetWindowThreadProcessId(hwnd(h), &mut pid);
+        let ph = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
+        if ph.is_null() {
+            return None;
+        }
+        let mut buf = [0u16; 1024];
+        let mut len = buf.len() as u32;
+        let ok = QueryFullProcessImageNameW(ph, 0, buf.as_mut_ptr(), &mut len) != 0;
+        CloseHandle(ph);
+        ok.then(|| from_wide(&buf[..len as usize]))
+    }
+}
+
 pub fn process_name_of(pid: u32) -> String {
     if pid == 0 {
         return String::new();

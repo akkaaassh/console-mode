@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Switch apps</title>
+<style>
+/* App switcher: a row of live cards over a dimmed screen. Controller-driven; mouse clicks work too. */
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:transparent;color:#eef2fb;font:15px Inter,system-ui,sans-serif;overflow:hidden;user-select:none}
+#dim{position:fixed;inset:0;background:rgba(4,6,12,.72);backdrop-filter:blur(6px)}
+#wrap{position:fixed;inset:0;display:flex;flex-direction:column;justify-content:center;gap:3vh}
+h1{margin:0 0 0 6vw;font:600 clamp(18px,2.6vh,26px) Inter,system-ui,sans-serif;opacity:.85}
+#row{display:flex;gap:2vw;padding:2vh 6vw;overflow:hidden;scroll-behavior:smooth}
+.card{flex:none;width:clamp(220px,22vw,380px);display:flex;flex-direction:column;gap:1.2vh;opacity:.72;transition:transform .15s ease,opacity .15s ease;cursor:pointer}
+.card.on{opacity:1;transform:scale(1.06)}
+.shot{aspect-ratio:16/10;border-radius:14px;background:#141b2e center/cover no-repeat;border:2px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.card.on .shot{border-color:#fff;box-shadow:0 0 0 3px #5B9BFF,0 18px 40px rgba(0,0,0,.5)}
+.shot img.big{width:28%;opacity:.9}
+.meta{display:flex;gap:10px;align-items:center;min-width:0}
+.meta img,.meta .ph{width:28px;height:28px;flex:none;border-radius:6px}
+.meta .ph{background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px}
+.meta b{font-size:clamp(13px,1.8vh,16px);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hint{display:flex;gap:2.4vw;margin-left:6vw;font-size:clamp(11px,1.6vh,14px);color:#a9b4cc}
+.hint b{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 5px;border-radius:10px;border:1.5px solid #a9b4cc;color:#eef2fb;font-size:10px;margin-right:5px}
+.empty{margin-left:6vw;color:#a9b4cc}
+</style>
+</head>
+<body>
+<div id="dim"></div>
+<div id="wrap"><h1>Switch apps</h1><div id="row"></div><div class="hint"><span><b>←→</b>Choose</span><span><b>Release View</b>or <b>A</b>Switch</span><span><b>X</b>Close app</span><span><b>B</b>Cancel</span></div></div>
+<script>
+{
+const T=window.__TAURI__;
+const st={list:[],sel:0,items:{}};
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function draw(){
+ const row=document.getElementById('row');
+ if(!st.list.length){row.innerHTML='<p class="empty">No other apps are open.</p>';return}
+ row.innerHTML=st.list.map((w,i)=>{const it=st.items[w.hwnd]||{};const icon=it.icon||w.icon;
+  return `<div class="card ${i===st.sel?'on':''}" data-i="${i}"><div class="shot" style="${it.thumb?`background-image:url('${it.thumb}')`:''}">${!it.thumb&&icon?`<img class="big" src="${icon}" alt="">`:''}</div>
+  <div class="meta">${icon?`<img src="${icon}" alt="">`:`<span class="ph">${esc((w.title||'?').slice(0,1))}</span>`}<b>${esc(w.title)}</b></div></div>`}).join('');
+ const on=row.querySelector('.card.on');if(on)on.scrollIntoView({inline:'center',block:'nearest'});
+}
+document.addEventListener('click',e=>{const c=e.target.closest('.card');if(c&&T)T.core.invoke('switcher_pick',{index:+c.dataset.i})});
+if(T){
+ T.event.listen('sw-state',e=>{const p=e.payload||{};const changed=p.list.length!==st.list.length||p.list.some((w,i)=>!st.list[i]||st.list[i].hwnd!==w.hwnd);st.list=p.list||[];st.sel=p.sel||0;if(changed)for(const k in st.items)if(!st.list.some(w=>String(w.hwnd)===k))delete st.items[k];draw()});
+ T.event.listen('sw-item',e=>{const p=e.payload||{};st.items[p.hwnd]={icon:p.icon,thumb:p.thumb};draw()});
+}
+draw();
+}
+</script>
+</body>
+</html>

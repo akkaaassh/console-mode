@@ -40,6 +40,8 @@ jobs:
 
       - name: Build installer
         shell: bash
+        env:
+          CM_BUILD: ${{ github.run_number }}
         run: |
           set -o pipefail
           npx tauri build 2>&1 | tee build.log

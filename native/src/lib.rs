@@ -19,3 +19,6 @@ pub mod winrt;
 pub mod wifi;
 pub mod bluetooth;
 pub mod art;
+pub mod capture;
+pub mod update;
+pub mod webapp;

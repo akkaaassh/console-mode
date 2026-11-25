@@ -24,7 +24,10 @@ windows-sys = { version = "0.61", features = [
   "Win32_NetworkManagement_WiFi",
   "Win32_NetworkManagement_Ndis",
   "Win32_System_Shutdown",
+  "Win32_Storage_Xps",
+  "Win32_Graphics_Dwm",
 ] }
+png = "0.17"
 ureq = { version = "2", features = ["json"] }
 
 # WinRT/COM parts (media session, volume, UI Automation). Windows only.
@@ -40,5 +43,8 @@ windows = { version = "0.62", features = [
   "Win32_System_Variant",
   "Win32_UI_Accessibility",
   "Devices_Radios",
+  "Gaming_Input",
+  "Win32_UI_Shell",
+  "Win32_Graphics_Gdi",
 ] }
 windows-future = "0.3"
