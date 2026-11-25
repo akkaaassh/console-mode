@@ -32,6 +32,7 @@ Works with Xbox-style controllers (XInput), including most third-party pads in X
 - Settings: pointer speed, brightness (laptops and DDC/CI monitors), power mode, resolution, refresh rate, live CPU/GPU/memory, start with Windows, exit.
 - Moving particle background (can be turned off in Settings).
 - **Official artwork**: games get their cover, background and logo from the Steam store, even when bought on Epic, GOG or elsewhere (Epic games can also use Epic's own images). A SteamGridDB key is optional.
+- **Crop & adjust** any cover, background or logo (from Steam, SteamGridDB, a link or your PC): move and zoom with the controller, with live previews of Home and the Library.
 - **Change artwork** from a game's or app's ··· menu: Steam or SteamGridDB images, a different match, another name, an image link, or an image from your PC.
 - **Web apps**: Chrome and Edge installed web apps show up in Apps, and **+ Add web app** turns any website into a full-screen app tile.
 - **Updates**: Settings › Updates checks GitHub for a newer build and installs it.
