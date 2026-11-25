@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Console Mode</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+/* VOICE: a living-room console, calm and cinematic
+   IDEA: the page is the TV itself, a 16:9 console screen scaled to the window
+   PICTURE: full-bleed game art behind a row of tiles
+   COLOUR and TYPE: near-black #05070d, white, one blue #5B9BFF; Space Grotesk titles, Inter UI
+   LAYOUT: one 1280x720 stage, letterboxed and scaled to fit */
+:root{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+html,body{margin:0;height:100%;background:#000;color:#eef2fb;font:15px/1.4 Inter,system-ui,sans-serif;overflow:hidden}
+#wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+#stage{position:relative;width:1280px;height:720px;flex:none;overflow:hidden;background:#05070d;transform-origin:center}
+button{font:inherit;color:inherit;cursor:pointer;border:none;background:none;padding:0}
+.h{font-family:'Space Grotesk',Inter,sans-serif}
+.scr{position:absolute;inset:0}
+.enter{animation:fade .35s ease}
+@keyframes fade{from{opacity:0;transform:scale(1.01)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.enter{animation:none}}
+.btn{height:44px;padding:0 20px;border-radius:22px;background:rgba(255,255,255,.12);font-weight:600}
+.btn.pri{background:#fff;color:#05070d}
+.ic{width:42px;height:42px;border-radius:21px;display:inline-flex;align-items:center;justify-content:center;background:rgba(255,255,255,.08)}
+.foc{outline:3px solid #fff;outline-offset:3px}
+.hov{box-shadow:0 0 0 3px #5B9BFF!important}
+.hint{display:flex;gap:18px;font-size:13px;color:#a9b4cc;flex-wrap:wrap;align-items:center}
+.hint b{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 6px;border-radius:11px;border:1.5px solid #a9b4cc;color:#eef2fb;font-size:11px;margin-right:6px}
+.muted{color:#a9b4cc}
+/* login */
+.login{background:radial-gradient(70% 90% at 25% 30%,#3a5a8a 0%,transparent 60%),radial-gradient(60% 80% at 85% 80%,#2a3f5f 0%,transparent 60%),#0f1a2c}
+.av{border-radius:50%;background:#5B9BFF;color:#06101f;display:flex;align-items:center;justify-content:center;font-weight:700}
+.pinbox{width:300px;height:46px;border-radius:6px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.35);display:flex;align-items:center;justify-content:center;gap:12px}
+.dot{width:12px;height:12px;border-radius:6px;border:2px solid rgba(255,255,255,.45)}.dot.on{background:#fff;border-color:#fff}
+.pad{position:absolute;right:120px;top:110px;width:400px;padding:24px;border-radius:20px;background:rgba(8,14,26,.8);border:1px solid rgba(255,255,255,.12);display:flex;flex-direction:column;gap:16px}
+.keys{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.pk{height:64px;border-radius:12px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.07);font:600 24px 'Space Grotesk',sans-serif;position:relative}
+.pk span,.ok span{position:absolute;right:8px;bottom:6px;font:600 11px Inter,sans-serif;color:#9fb0cf}
+.pk.flash{background:#fff;color:#05070d}
+/* home */
+.tiles{position:absolute;left:48px;top:84px;display:flex;gap:12px;align-items:flex-start}
+.tile{flex:none;width:84px;height:84px;border-radius:12px;position:relative;transition:width .18s,height .18s}
+.tile.on{width:120px;height:120px;outline:3px solid #fff;outline-offset:3px;box-shadow:0 14px 36px rgba(0,0,0,.6)}
+.tile em{position:absolute;left:6px;bottom:6px;font:600 10px Inter;font-style:normal;background:#3FE08A;color:#05070d;padding:2px 6px;border-radius:8px}
+.card{flex:1;height:96px;border-radius:14px;background:rgba(255,255,255,.09);padding:14px 16px;display:flex;flex-direction:column;justify-content:space-between}
+.card small{font-size:12px;color:rgba(255,255,255,.6)}
+.bar{height:4px;border-radius:2px;background:rgba(255,255,255,.2)}.bar i{display:block;height:4px;border-radius:2px;background:#fff}
+/* library */
+.tabs{display:flex;gap:8px}
+.tab{height:38px;padding:0 18px;border-radius:19px;font-size:14px;font-weight:600;color:#a9b4cc}.tab.on{background:#fff;color:#070b16}
+.grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:16px}
+.cover{aspect-ratio:3/4;border-radius:12px;padding:8px;display:flex;align-items:flex-start;width:100%}
+.cover span{font-size:11px;font-weight:600;padding:3px 8px;border-radius:10px;background:rgba(0,0,0,.45)}
+.gi{display:flex;flex-direction:column;gap:8px;text-align:left}.gi p{margin:0;font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gi.on .cover{outline:3px solid #fff;outline-offset:3px}
+/* quick menu */
+#qm{position:absolute;inset:0;z-index:20;display:none}
+.qa{height:78px;border-radius:14px;padding:12px;display:flex;flex-direction:column;justify-content:space-between;align-items:flex-start;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);text-align:left}
+.qa.on{background:#fff;color:#070b16;border-color:#fff}
+.mb{width:44px;height:44px;border-radius:22px;background:rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center}
+.mb.big{width:52px;height:52px;border-radius:26px;background:#fff;color:#05070d}
+.mb.spot{width:48px;height:48px;border-radius:24px;background:#1ed760;color:#05070d}
+.mb.on{outline:3px solid #fff;outline-offset:3px}
+/* desktop */
+#desk{position:absolute;inset:0;display:none;background:linear-gradient(135deg,#1c3557 0%,#0f1a2c 70%)}
+.win{position:absolute;left:160px;top:40px;width:960px;height:360px;border-radius:10px;background:#f3f4f7;color:#1a1d24;box-shadow:0 20px 50px rgba(0,0,0,.45);overflow:hidden}
+.win input,.win textarea{width:100%;font:16px Inter,sans-serif;border:2px solid #c9ced8;border-radius:8px;padding:10px 12px;background:#fff;color:#1a1d24;outline:none}
+.win input:focus,.win textarea:focus,.win .tgt{border-color:#2f6fe0}
+.task{position:absolute;left:0;right:0;bottom:0;height:52px;background:rgba(8,12,22,.9);display:flex;align-items:center;gap:12px;padding:0 16px}
+/* osk */
+#osk{position:absolute;left:0;right:0;bottom:0;z-index:15;display:none;padding:12px 80px 10px;background:rgba(8,12,22,.97);border-top:1px solid rgba(255,255,255,.1);flex-direction:column;gap:7px}
+.krow{display:flex;gap:7px}
+.k{position:relative;flex:1 1 0;height:44px;border-radius:9px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.08);font-size:19px}
+.k.sp{background:rgba(255,255,255,.14);font-size:14px;font-weight:600}
+.k.on{background:#fff;color:#05070d;box-shadow:0 0 0 3px #5B9BFF}
+.k.lit{background:#5B9BFF;color:#05070d}
+.k span{position:absolute;right:6px;bottom:3px;font-size:10px;font-weight:600;color:#8fa0c0}
+.preview{height:32px;display:flex;align-items:center;gap:10px;font-size:15px}
+.preview code{font:15px Inter,sans-serif;white-space:pre;overflow:hidden;background:rgba(255,255,255,.06);padding:4px 10px;border-radius:6px;flex:1}
+.caret{display:inline-block;width:2px;height:18px;background:#5B9BFF;vertical-align:middle;animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+/* settings */
+.side{width:300px;padding:40px 24px;background:#0b0f19;display:flex;flex-direction:column;gap:4px}
+.side a{padding:12px;border-radius:10px;color:rgba(255,255,255,.7);text-decoration:none;font-size:15px}.side a.on{background:rgba(255,255,255,.1);color:#fff;font-weight:600}
+.mrow{height:72px;border-radius:14px;padding:0 18px;display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,.06);border:2px solid transparent}
+.mrow.on{background:rgba(91,155,255,.22);border-color:#5B9BFF}
+.mrow b{font:700 26px 'Space Grotesk',sans-serif}.mrow span{font-size:14px;font-weight:600;padding:6px 12px;border-radius:14px;background:rgba(255,255,255,.12)}
+.seg{display:flex;gap:6px;padding:4px;border-radius:22px;background:rgba(255,255,255,.06);width:max-content}
+.sb{height:38px;padding:0 16px;border-radius:19px;font-size:14px;font-weight:600;color:#a9b4cc}.sb.on{background:#fff;color:#05070d}
+.sf{outline:3px solid #5B9BFF!important;outline-offset:2px}
+.sw{width:56px;height:32px;border-radius:16px;background:rgba(255,255,255,.2);position:relative;flex:none}.sw.on{background:#3FE08A}.sw i{position:absolute;top:4px;left:4px;width:24px;height:24px;border-radius:12px;background:#fff;transition:left .15s}.sw.on i{left:28px}
+.gl{font-size:13px;color:#a9b4cc;margin-bottom:8px}
+.stat{padding:10px 14px;border-radius:12px;background:rgba(255,255,255,.05)}
+.side button{padding:12px;border-radius:10px;color:rgba(255,255,255,.7);font-size:15px;text-align:left}.side button.on{background:rgba(255,255,255,.1);color:#fff;font-weight:600}
+/* chrome */
+#cur{position:absolute;left:0;top:0;pointer-events:none;z-index:50;opacity:0;transition:opacity .3s}
+#toast{position:absolute;left:50%;top:22px;transform:translateX(-50%);z-index:60;background:rgba(20,26,40,.97);border:1px solid rgba(255,255,255,.15);padding:10px 18px;border-radius:20px;font-size:14px;opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap}
+#help{position:absolute;inset:0;z-index:70;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.6)}
+#help .box{width:640px;padding:28px 32px;border-radius:18px;background:#0e1424;border:1px solid rgba(255,255,255,.12)}
+#help table{width:100%;border-collapse:collapse;font-size:14px}#help td{padding:6px 0;border-bottom:1px solid rgba(255,255,255,.07)}#help td:last-child{text-align:right;color:#a9b4cc}
+#chip{position:fixed;left:12px;bottom:12px;z-index:100;display:flex;gap:10px;align-items:center;padding:8px 14px;border-radius:18px;background:rgba(20,26,40,.92);border:1px solid rgba(255,255,255,.12);font-size:13px}
+#chip i{width:8px;height:8px;border-radius:4px;background:#ff8a3d}#chip i.ok{background:#3FE08A}
+#chip button{height:28px;padding:0 10px;border-radius:14px;background:rgba(255,255,255,.12);font-size:12px;font-weight:600}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="stage">
+  <div id="scr" class="scr"></div>
+  <div id="desk">
+    <div class="win">
+      <div style="height:36px;background:#e2e5eb;display:flex;align-items:center;padding:0 14px;font-size:13px;color:#4a5061">Sample app · any Windows program with text fields</div>
+      <div style="padding:26px 60px;display:flex;flex-direction:column;gap:10px">
+        <label for="dsearch" style="font-size:14px;font-weight:600">Search</label>
+        <input id="dsearch" autocomplete="off" placeholder="Search games, music, the web…">
+        <label for="dnotes" style="font-size:14px;font-weight:600;margin-top:6px">Notes</label>
+        <textarea id="dnotes" rows="3" placeholder="Write something…"></textarea>
+        <p style="margin:2px 0 0;font-size:13px;color:#6a7080">Point the controller cursor at a field and press A: the keyboard opens. Clicking with a real mouse and typing on a real keyboard keeps it closed.</p>
+      </div>
+    </div>
+    <div class="task">
+      <button class="btn pri" data-act="go:home">Console home</button>
+      <span class="hint" style="margin-left:12px"><span><b>RS</b>Cursor</span><span><b>A</b>Click</span><span><b>G</b>Quick menu</span></span>
+      <span class="clk h" style="margin-left:auto;font-size:18px;font-weight:600"></span>
+    </div>
+  </div>
+  <div id="osk"></div>
+  <div id="qm"></div>
+  <div id="toast"></div>
+  <div id="help"></div>
+  <div id="cur"><svg width="26" height="30" viewBox="0 0 26 30" aria-hidden="true"><path d="M2 2 L2 24 L8 18 L12 28 L16 26 L12 17 L21 17 Z" fill="#fff" stroke="#05070d" stroke-width="2" stroke-linejoin="round"/></svg></div>
+</div></div>
+<div id="chip"><i></i><span id="chipt">No controller yet · press any button on it</span><button data-act="help">Keys (H)</button></div>
+
+<script>
+{
+const $=s=>document.querySelector(s);
+const NATIVE=!!(window.__TAURI__&&window.__TAURI__.core);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const stage=$('#stage');
+
+const GAMES=[
+ {t:'Assassin’s Creed IV Black Flag',s:'Steam',last:'Yesterday',h:41,gb:46,c1:'#0e4c6e',c2:'#d9a441',tags:['fav']},
+ {t:'Baldur’s Gate 3',s:'Steam',last:'3 days ago',h:112,gb:150,c1:'#3b1d4a',c2:'#c4513c',tags:['fav','multi']},
+ {t:'Red Dead Redemption 2',s:'Rockstar',last:'Last week',h:68,gb:120,c1:'#5a1a12',c2:'#e0b071',tags:['multi']},
+ {t:'Mortal Shell',s:'Epic',last:'2 weeks ago',h:9,gb:22,c1:'#1f2a22',c2:'#8fa37a',tags:[]},
+ {t:'Gears of War: E‑Day',s:'Xbox app',last:'Never',h:0,gb:90,c1:'#2b2f36',c2:'#b8392b',tags:['multi']},
+ {t:'Forza Horizon 5',s:'Xbox app',last:'Last month',h:23,gb:110,c1:'#0f3b57',c2:'#f2c94c',tags:['multi','party']},
+ {t:'Hades II',s:'Steam',last:'Last month',h:30,gb:10,c1:'#2a1440',c2:'#59d2c6',tags:['fav']},
+ {t:'Elden Ring',s:'Steam',last:'2 months ago',h:95,gb:60,c1:'#2d2616',c2:'#d4b36a',tags:[]},
+ {t:'Cyberpunk 2077',s:'GOG',last:'3 months ago',h:52,gb:70,c1:'#3a3a10',c2:'#f0e14a',tags:[]},
+ {t:'It Takes Two',s:'EA app',last:'Never',h:0,gb:50,c1:'#3a1f4f',c2:'#ff9a7a',tags:['party','multi']},
+ {t:'Rocket League',s:'Epic',last:'4 months ago',h:140,gb:25,c1:'#10224a',c2:'#ff8a3d',tags:['party','multi','fav']},
+ {t:'Overcooked! 2',s:'Steam',last:'5 months ago',h:12,gb:4,c1:'#4a1d12',c2:'#ffd166',tags:['party','multi']},
+ {t:'Stardew Valley',s:'Steam',last:'6 months ago',h:70,gb:1,c1:'#1d3b1a',c2:'#9bd36a',tags:['multi']},
+ {t:'Sea of Thieves',s:'Xbox app',last:'Never',h:0,gb:80,c1:'#0b3a3a',c2:'#3fd0c0',tags:['multi','party']},
+ {t:'Hollow Knight: Silksong',s:'Steam',last:'Not installed',h:0,gb:8,c1:'#1a1a2e',c2:'#c94b6d',tags:['ni']},
+ {t:'Starfield',s:'Steam',last:'Not installed',h:0,gb:125,c1:'#12202e',c2:'#e8e2d0',tags:['ni']}
+];
+const APPS=[
+ {t:'Netflix',s:'Microsoft Store app',last:'Yesterday',c1:'#2a0a0c',c2:'#8a1f25',app:true,tags:[]},
+ {t:'Prime Video',s:'Microsoft Store app',last:'3 days ago',c1:'#0b2233',c2:'#1f6f9e',app:true,tags:[]},
+ {t:'Spotify',s:'Desktop app',last:'Today',c1:'#0c2a18',c2:'#1f8a4c',app:true,tags:[]},
+ {t:'YouTube',s:'Installed web app (Edge)',last:'Today',c1:'#2b0d0d',c2:'#a83232',app:true,tags:[]},
+ {t:'JioHotstar',s:'Microsoft Store app',last:'Last week',c1:'#0c1640',c2:'#3b5bdb',app:true,tags:[]},
+ {t:'VLC media player',s:'Desktop app',last:'2 weeks ago',c1:'#3a2108',c2:'#e07b1a',app:true,tags:[]},
+ {t:'Plex',s:'Desktop app',last:'Last month',c1:'#1e1a0a',c2:'#c99a20',app:true,tags:[]},
+ {t:'Apple TV',s:'Microsoft Store app',last:'Last month',c1:'#151515',c2:'#5a5a5a',app:true,tags:[]},
+ {t:'Twitch',s:'Installed web app (Edge)',last:'2 months ago',c1:'#1d1233',c2:'#7b4fd6',app:true,tags:[]}
+];
+[1,3,7,14,999,30,31,60,90,999,120,150,180,999,999,999].forEach((d,i)=>GAMES[i].lp=d);
+['2024-11-02','2025-01-20','2024-06-10','2025-08-01','2026-11-20','2025-02-14','2025-10-01','2024-03-05','2024-12-25','2026-10-30','2023-07-07','2024-01-15','2023-05-20','2026-11-10','',''].forEach((d,i)=>GAMES[i].inst=d);
+[1,3,0,0,7,14,30,30,60].forEach((d,i)=>APPS[i].lp=d);
+['2023-01-10','2023-04-02','2022-11-11','2025-06-01','2025-03-30','2021-08-08','2024-02-02','2025-12-12','2024-09-09'].forEach((d,i)=>APPS[i].inst=d);
+let LPC=0;
+const sortBy=(list,m)=>[...list].sort(m==='name'?(a,b)=>a.t.localeCompare(b.t):m==='installed'?(a,b)=>(b.inst||'').localeCompare(a.inst||''):(a,b)=>a.lp-b.lp);
+const DEFPREF={sortGames:'recent',sortApps:'recent',bright:100,power:'balanced',res:'1920×1080',hz:'144',startup:true,pinpad:true};
+let PREF={...DEFPREF};
+try{Object.assign(PREF,JSON.parse(localStorage.getItem('cm-pref')||'{}'))}catch(e){}
+const savePref=()=>{try{localStorage.setItem('cm-pref',JSON.stringify(PREF))}catch(e){}};
+let TABS=[['All games',g=>!g.tags.includes('ni')],['Favourites',g=>g.tags.includes('fav')],['Unplayed',g=>g.h===0&&!g.tags.includes('ni')],['Party',g=>g.tags.includes('party')],['Multiplayer',g=>g.tags.includes('multi')],['Not installed',g=>g.tags.includes('ni')]];
+const TRACKS=[['Track title one','Artist name',221,'#4b1d5e','#f06c9b'],['Track title two','Artist name',245,'#123d5c','#5fd3f3'],['Track title three','Artist name',178,'#3d2a0e','#f2b84b'],['Track title four','Artist name',202,'#0f3d2a','#6be3a1'],['Track title five','Artist name',310,'#2a2a2a','#c9c9c9'],['Track title six','Artist name',227,'#5a1717','#ff8a5c']];
+const PINKEYS=['1','2','3','4','5','6','7','8','9','del','0','enter'];
+const DEFMAP={'1':'A','2':'B','3':'X','4':'Y','5':'LB','6':'RB','7':'LT','8':'RT','9':'L3','0':'R3','del':'View','enter':'Menu'};
+let MAP={...DEFMAP};
+try{const m=JSON.parse(localStorage.getItem('cm-map')||'null');if(m&&m['1'])MAP=m}catch(e){}
+const saveMap=()=>{try{localStorage.setItem('cm-map',JSON.stringify(MAP))}catch(e){}};
+const OSK=[['1','2','3','4','5','6','7','8','9','0','⌫'],['q','w','e','r','t','y','u','i','o','p'],['a','s','d','f','g','h','j','k','l','Enter'],['Shift','z','x','c','v','b','n','m',',','.'],['@','-','Space','.com','Hide']];
+const OSKW={'⌫':1.5,'Enter':1.6,'Shift':1.6,'Space':5.2,'.com':1.4,'Hide':1.4};
+const OSKH={'⌫':'B','Shift':'X','Space':'Y','Enter':'Menu','Hide':'View'};
+
+const S={set:{sec:0,side:true,g:0,o:0,listen:false,confirm:false,cf:1},screen:NATIVE?'home':'login',last:'',from:'home',pin:'',sel:0,htab:'games',asel:0,tab:0,lsel:0,game:null,gameStart:0,
+ qm:{open:false,row:0,col:0,side:false},mi:0,playing:true,pos:82,vol:64,
+ osk:{open:false,el:null,r:2,c:4,shift:false,caret:0},help:false,
+ cx:640,cy:420,ct:0,pad:''};
+
+const grad=g=>(g.cover?`url('${g.cover}') center/cover no-repeat,`:'')+`linear-gradient(150deg,${g.c1} 0%,${g.c2} 100%)`;
+const clock=()=>new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',hour12:false});
+const mmss=s=>Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
+const track=i=>{const t=TRACKS[(i%TRACKS.length+TRACKS.length)%TRACKS.length];return{t:t[0],a:t[1],len:t[2],art:`linear-gradient(135deg,${t[3]},${t[4]})`}};
+const lib=()=>sortBy(GAMES.filter(TABS[S.tab][1]),PREF.sortGames);
+let tt;function toast(m){const t=$('#toast');t.textContent=m;t.style.opacity=1;clearTimeout(tt);tt=setTimeout(()=>t.style.opacity=0,2200)}
+
+/* ---------- screens ---------- */
+function vLogin(){
+ const dots=[0,1,2,3].map(i=>`<i class="dot ${i<S.pin.length?'on':''}"></i>`).join('');
+ const keys=PINKEYS.map(k=>`<button class="pk" id="pk-${k}" data-act="pin:${k}">${k==='del'?'⌫':k==='enter'?'OK':k}<span>${MAP[k]||''}</span></button>`).join('');
+ return `<div class="login" style="position:absolute;inset:0">
+ <div style="position:absolute;top:20px;left:28px;font-size:12px;font-weight:600;letter-spacing:1px;color:rgba(255,255,255,.55)">WINDOWS SIGN-IN · CONTROLLER PIN PAD (sign-in plug-in in the real app)</div>
+ <div style="position:absolute;left:150px;top:150px;width:420px;display:flex;flex-direction:column;align-items:center;gap:14px">
+  <div class="av h" style="width:150px;height:150px;font-size:54px">AK</div>
+  <div style="font-size:30px;font-weight:600;margin-top:6px">Akash</div>
+  <div style="font-size:13px;color:rgba(255,255,255,.7)">PIN</div>
+  <div class="pinbox" aria-label="PIN, ${S.pin.length} of 4 digits entered">${dots}</div>
+  <div style="font-size:13px;color:rgba(255,255,255,.7);margin-top:6px">Demo: any 4-digit PIN signs in</div>
+ </div>
+ <div class="pad" style="${PREF.pinpad?'':'display:none'}">
+  <div style="display:flex;justify-content:space-between;align-items:center"><span class="h" style="font-size:18px;font-weight:700">Controller PIN pad</span><span style="font-size:12px;color:${S.pad?'#3FE08A':'#a9b4cc'}">${S.pad?'● Controller connected':'○ Keyboard: type digits'}</span></div>
+  <div class="keys">${keys}</div>
+  <div style="font-size:12px;line-height:1.5;color:#a9b4cc">Each button types the digit shown in its corner. Change the mapping in Settings.</div>
+ </div>
+ <div style="position:absolute;left:0;right:0;bottom:22px;text-align:center;font-size:13px;color:rgba(255,255,255,.6)">After sign-in, the console home opens full screen.</div></div>`;
+}
+function vWelcome(){return `<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:#05070d"><div class="av h" style="width:110px;height:110px;font-size:40px">AK</div><div class="h" style="font-size:34px;font-weight:700">Welcome back, Akash</div><div class="muted">Opening Console Mode…</div></div>`}
+function vHome(){
+ const ap=S.htab==='apps',list=homeList(),cs=ap?S.asel:S.sel,g=list[cs],tr=track(S.mi);
+ if(!g)return emptyHome(ap);
+ const tiles=list.map((x,i)=>`<button class="tile ${i===cs?'on':''}" data-act="sel:${i}" aria-label="${esc(x.t)}" style="background:${grad(x)}">${ap?`<span style="position:absolute;left:8px;right:8px;top:8px;font:700 12px 'Space Grotesk',sans-serif;line-height:1.1;text-align:left">${esc(x.t)}</span>`:''}${S.game===x?'<em>Running</em>':''}</button>`).join('');
+ return `<div style="position:absolute;inset:0;background:${g.hero?`url('${g.hero}') center/cover no-repeat,`:''}radial-gradient(90% 100% at 75% 35%,${g.c2} 0%,${g.c1} 45%,#05070d 100%);transition:background .4s"></div>
+ <div style="position:absolute;inset:0;background:linear-gradient(90deg,rgba(5,7,13,.85) 0%,rgba(5,7,13,.3) 45%,rgba(5,7,13,0) 70%),linear-gradient(180deg,rgba(5,7,13,.6) 0%,rgba(5,7,13,0) 22%,rgba(5,7,13,0) 55%,rgba(5,7,13,.92) 100%)"></div>
+ <header style="position:absolute;left:48px;right:48px;top:22px;display:flex;align-items:center;justify-content:space-between">
+  <nav style="display:flex;gap:30px"><button data-act="htab:games" style="font-size:19px;${ap?'color:rgba(255,255,255,.55)':'font-weight:600'}">Games</button><button data-act="htab:apps" style="font-size:19px;${ap?'font-weight:600':'color:rgba(255,255,255,.55)'}">Apps</button>${ap?`<button data-act="rescan:apps" style="font-size:13px;color:#a9b4cc;align-self:center">Rescan apps</button>`:''}</nav>
+  <div style="display:flex;gap:12px;align-items:center">
+   <button class="ic" aria-label="Library" data-act="go:library"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></button>
+   <button class="ic" aria-label="Desktop" data-act="go:desktop"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg></button>
+   <button class="ic" aria-label="Settings" data-act="go:settings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg></button>
+   <div class="av" style="width:34px;height:34px;font-size:13px">AK</div>
+   <span class="clk" style="font-size:19px;font-weight:500">${clock()}</span>
+  </div></header>
+ <div class="tiles">${tiles}</div>
+ <div style="position:absolute;left:48px;top:222px;font-size:17px;font-weight:600">${esc(g.t)}</div>
+ <section style="position:absolute;left:48px;top:300px;width:600px;display:flex;flex-direction:column;gap:18px">
+  <div class="h" style="font-size:50px;line-height:1;font-weight:700;text-transform:uppercase;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${esc(g.t)}</div>
+  <div style="display:flex;gap:12px;align-items:center">
+   <button class="btn pri" style="width:180px;height:48px;border-radius:24px;font-size:17px" data-act="play">${S.game===g?'Resume':ap?'Open':'Play'}</button>
+   <button class="ic" style="width:48px;height:48px;border-radius:24px;background:rgba(255,255,255,.16);font-weight:700" aria-label="More options" data-act="toast:Options: change art, add to collection, virtual controller">···</button>
+   <span style="font-size:14px;color:rgba(255,255,255,.75);margin-left:6px">${ap?g.s:gmeta(g)}</span>
+  </div></section>
+ <div class="hint" style="position:absolute;left:48px;top:560px"><span><b>LB</b><b>RB</b>Games / Apps</span><span><b>←→</b>Choose</span><span><b>A</b>${ap?'Open':'Play'}</span><span><b>Y</b>Library</span><span><b>View</b>Desktop</span><span><b>Menu</b>Settings</span><span><b>G</b>Quick menu</span></div>
+ <section style="position:absolute;left:48px;right:48px;bottom:26px;display:flex;gap:14px">
+  <div class="card"><small>Continue</small><b style="font-size:15px">${S.game?esc(S.game.t):'Nothing running'}</b><div class="bar"><i style="width:${S.game?62:0}%"></i></div></div>
+  <div class="card"><small>${ap?'Last opened':'Last played'}</small><b style="font-size:15px">${g.last}</b><small>${g.s}</small></div>
+  <div class="card"><small>Now playing</small>${npCard()}</div>
+  <div class="card"><small>Controller</small><b style="font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${S.pad?'Connected':'Keyboard mode'}</b><small>${S.pad?esc(S.pad.slice(0,34)):'Press H for keys'}</small></div>
+ </section>`;
+}
+function vLibrary(){
+ const list=lib();
+ const tabs=TABS.map((t,i)=>`<button class="tab ${i===S.tab?'on':''}" data-act="tab:${i}">${t[0]}</button>`).join('');
+ const items=list.length?list.map((g,i)=>`<button class="gi ${i===S.lsel?'on':''}" data-act="lib:${i}"><div class="cover" style="background:${grad(g)}"><span>${g.s}</span></div><p>${esc(g.t)}</p></button>`).join(''):`<p class="muted" style="grid-column:1/-1">Nothing in this collection yet.</p>`;
+ return `<div style="position:absolute;inset:0;padding:28px 56px 0;display:flex;flex-direction:column;gap:18px">
+ <div style="display:flex;justify-content:space-between;align-items:center"><h1 class="h" style="margin:0;font-size:32px">Library</h1>
+  <div style="display:flex;gap:10px"><button class="btn" data-act="toast:Add game: pick an .exe or shortcut">+ Add game</button><button class="btn" data-act="rescan:games">Rescan</button><button class="btn" data-act="go:home">Home</button></div></div>
+ <div class="tabs">${tabs}</div><div class="grid">${items}</div></div>
+ <div class="hint" style="position:absolute;left:56px;bottom:20px"><span><b>LB</b><b>RB</b>Collection</span><span><b>A</b>Play</span><span><b>B</b>Back</span></div>`;
+}
+function vGame(){
+ const g=S.game,secs=Math.floor((Date.now()-S.gameStart)/1000);
+ return `<div style="position:absolute;inset:0;background:${grad(g)}"></div><div style="position:absolute;inset:0;background:radial-gradient(60% 60% at 50% 45%,transparent,rgba(0,0,0,.55))"></div>
+ <div style="position:absolute;left:0;right:0;top:250px;text-align:center"><div class="h" style="font-size:44px;font-weight:700;text-shadow:0 4px 24px rgba(0,0,0,.5)">${esc(g.t)}</div>
+ <div style="margin-top:10px;color:rgba(255,255,255,.8)">${g.app?'Pretend app open, full screen':'Pretend game running'} · <span id="gt">${mmss(secs)}</span></div></div>
+ <div class="hint" style="position:absolute;left:0;right:0;bottom:28px;justify-content:center;color:#fff"><span><b>Guide</b>or <b>View+Menu</b>or <b>G</b>open the quick menu</span></div>`;
+}
+const SECS=[['Home & appearance','appearance','Choose which games and apps show first on Home and in the Library.'],['Sign-in & PIN pad','signin','Which controller button types which digit on the sign-in screen. Select a digit, then press a button. The sign-in plug-in that uses this comes in a later version.'],['TV & power','power','Screen, display mode and power for the PC this launcher runs on.'],['Startup','startup','How Console Mode starts with Windows, and how to leave it.']];
+const SORT=[['recent','Recently played'],['name','Name A–Z'],['installed','Recently installed']];
+function groups(){
+ const s=SECS[S.set.sec][1];
+ if(s==='appearance')return[{t:'seg',k:'sortGames',label:'Games order · Home row and Library',opts:SORT},{t:'seg',k:'sortApps',label:'Apps order · Apps tab',opts:SORT}];
+ if(s==='signin')return[{t:'map',keys:['1','2','3','4']},{t:'map',keys:['5','6','7','8']},{t:'map',keys:['9','0','del','enter']},{t:'btn',opts:[['reset','Reset to default'],...(NATIVE?[]:[['signout','Sign out to test']])]}];
+ if(s==='power')return[{t:'slider',k:'bright',label:'Screen brightness'},{t:'seg',k:'power',label:'Power mode',opts:[['saver','Power saver'],['balanced','Balanced'],['perf','Performance']]},{t:'seg',k:'res',label:'Resolution',opts:resOpts()},{t:'seg',k:'hz',label:'Refresh rate',opts:hzOpts()}];
+ return[{t:'tog',k:'startup',label:'Open Console Mode when Windows starts'},{t:'tog',k:'pinpad',label:'Controller PIN pad on the Windows sign-in screen'},{t:'btn',opts:[['exit','Exit launcher']]}];
+}
+const gCount=g=>g.t==='seg'||g.t==='btn'?g.opts.length:g.t==='map'?g.keys.length:1;
+const pinName=k=>k==='del'?'Delete':k==='enter'?'Enter':k;
+const ST={cpu:[],gpu:[],ram:[],temp:[]};
+for(let i=0;i<40;i++){ST.cpu.push(25);ST.gpu.push(20);ST.ram.push(48);ST.temp.push(52)}
+function tickStats(){if(NATIVE)return;
+ const p={saver:.6,balanced:1,perf:1.35}[PREF.power],load=S.game&&!S.game.app?2.2:1;
+ const step=(a,target,j,lo,hi)=>{const v=a[a.length-1]+(target-a[a.length-1])*.3+(Math.random()-.5)*j;a.push(Math.max(lo,Math.min(hi,Math.round(v))));a.shift()};
+ step(ST.cpu,18*p*load,10,2,100);step(ST.gpu,14*p*load*1.4,10,1,100);step(ST.ram,S.game?62:46,3,20,95);step(ST.temp,40+12*p*load,3,30,95);
+}
+function spark(a,max,col){const pts=a.map((v,i)=>`${(i/(a.length-1)*280).toFixed(1)},${(40-v/max*38).toFixed(1)}`).join(' ');
+ return `<svg width="280" height="40" viewBox="0 0 280 40" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round"/></svg>`}
+function vSettings(){
+ const st=S.set,sec=SECS[st.sec],gs=groups();
+ const f=(gi,oi)=>!st.side&&st.g===gi&&st.o===oi?'sf':'';
+ const side=SECS.map((s,i)=>`<button class="${i===st.sec?'on':''} ${st.side&&i===st.sec?'sf':''}" data-act="sec:${i}">${s[0]}</button>`).join('');
+ const body=gs.map((g,gi)=>{
+  if(g.t==='seg')return `<div><div class="gl">${g.label}</div><div class="seg">${g.opts.map((o,oi)=>`<button class="sb ${PREF[g.k]===o[0]?'on':''} ${f(gi,oi)}" data-act="sg:${gi}:${oi}">${o[1]}</button>`).join('')}</div></div>`;
+  if(g.t==='slider')return `<div><div class="gl">${g.label}</div><div class="${f(gi,0)}" style="display:flex;gap:12px;align-items:center;padding:6px;border-radius:24px;width:max-content"><button class="ic" aria-label="Darker" data-act="sl:-10">−</button><div class="bar" style="width:260px;height:8px"><i style="width:${PREF.bright}%;height:8px"></i></div><button class="ic" aria-label="Brighter" data-act="sl:10">+</button><span style="width:44px">${PREF.bright}%</span></div></div>`;
+  if(g.t==='tog')return `<button class="${f(gi,0)}" data-act="sg:${gi}:0" style="display:flex;gap:16px;align-items:center;justify-content:space-between;width:560px;padding:16px 18px;border-radius:14px;background:rgba(255,255,255,.06);text-align:left"><span style="font-size:15px">${g.label}</span><span class="sw ${PREF[g.k]?'on':''}"><i></i></span></button>`;
+  if(g.t==='map')return `<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px">${g.keys.map((k,oi)=>`<button class="mrow ${f(gi,oi)}" data-act="sg:${gi}:${oi}"><b>${pinName(k)}</b><span>${st.listen===k?'Press a button…':MAP[k]}</span></button>`).join('')}</div>`;
+  return `<div style="display:flex;gap:12px">${g.opts.map((o,oi)=>`<button class="btn ${o[0]==='exit'?'pri':''} ${f(gi,oi)}" data-act="sg:${gi}:${oi}">${o[1]}</button>`).join('')}</div>`;
+ }).join('');
+ let extra='';
+ if(sec[1]==='appearance'){const pv=sortBy(GAMES.filter(g=>!g.tags.includes('ni')),PREF.sortGames).slice(0,6),pa=sortBy(APPS,PREF.sortApps).slice(0,6);
+  extra=`<div style="display:flex;gap:28px;margin-top:6px">${[['Home row preview · games',pv],['Apps preview',pa]].map(([l,list])=>`<div><div class="gl">${l}</div><div style="display:flex;gap:8px">${list.map(g=>`<div title="${esc(g.t)}" style="width:64px;height:64px;border-radius:10px;background:${grad(g)};padding:5px;font:600 9px Inter;line-height:1.1;overflow:hidden">${esc(g.t)}</div>`).join('')}</div></div>`).join('')}</div>`}
+ const stats=sec[1]==='power'?`<aside style="width:320px;flex:none;display:flex;flex-direction:column;gap:10px"><div class="gl" style="margin:0">PC stats · live</div>
+  ${statRows().map(m=>`<div class="stat"><div style="display:flex;justify-content:space-between;font-size:13px"><span class="muted">${m[0]}</span><b>${m[1][m[1].length-1]}${m[3]}</b></div>${spark(m[1],m[2],m[4])}</div>`).join('')}
+  <div style="font-size:11px;color:#6d7891">${NATIVE?(S.memText||''):'Simulated here. The real app reads Windows performance counters.'}</div></aside>`:'';
+ const conf=st.confirm?`<div style="position:absolute;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:5"><div style="width:460px;padding:28px;border-radius:18px;background:#0e1424;border:1px solid rgba(255,255,255,.12)"><h2 class="h" style="margin:0 0 8px;font-size:22px">Exit Console Mode?</h2><p class="muted" style="margin:0 0 20px;font-size:14px">You'll be back on the normal Windows desktop. Open it again from the Start menu or the tray icon.</p><div style="display:flex;gap:12px;justify-content:flex-end"><button class="btn ${st.cf===1?'sf':''}" data-act="cf:1">Cancel</button><button class="btn pri ${st.cf===0?'sf':''}" data-act="cf:0">Exit launcher</button></div></div></div>`:'';
+ return `<div style="position:absolute;inset:0;display:flex"><nav class="side" aria-label="Settings sections"><div class="h" style="font-size:26px;font-weight:700;margin:0 12px 20px">Settings</div>${side}
+ <button data-act="go:${S.from==='settings'?'home':S.from}" style="margin-top:auto">← Back</button></nav>
+ <main style="flex:1;padding:40px 48px;display:flex;flex-direction:column;gap:20px"><div><h1 class="h" style="margin:0;font-size:28px">${sec[0]}</h1><p class="muted" style="margin:8px 0 0;font-size:14px">${sec[2]}</p></div>
+ <div style="display:flex;gap:32px;flex:1"><div style="flex:1;display:flex;flex-direction:column;gap:20px">${body}${extra}</div>${stats}</div>
+ <div class="hint"><span><b>↑↓</b>Move</span><span><b>←→</b>Choose / adjust</span><span><b>A</b>Select</span><span><b>B</b>${st.side?'Leave settings':'Back to sections'}</span></div></main>${conf}</div>`;
+}
+function vClosed(){return `<div style="position:absolute;inset:0;background:linear-gradient(135deg,#1c3557 0%,#0f1a2c 70%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center">
+ <div class="h" style="font-size:30px;font-weight:700">Console Mode is closed</div><p class="muted" style="margin:0;max-width:460px">In the real app you'd now be on the normal Windows desktop. Pressing Guide wouldn't open the launcher until you start it again.</p>
+ <button class="btn pri" data-act="relaunch">Start Console Mode</button><span class="hint"><span><b>A</b>Start again</span></span></div>`}
+function applyBright(){if(NATIVE){nBright();return}stage.style.filter=PREF.bright<100?`brightness(${(0.35+PREF.bright*0.0065).toFixed(3)})`:''}
+function sgAct(gi,oi){if(NATIVE&&nSgAct(gi,oi))return;
+ const g=groups()[gi],st=S.set;if(!g)return;st.side=false;st.g=gi;st.o=oi;
+ if(g.t==='seg'){const v=g.opts[oi][0];PREF[g.k]=v;savePref();
+  if(g.k==='power')toast('Power mode: '+g.opts[oi][1]);
+  if(g.k==='res'||g.k==='hz')toast(`Display set to ${PREF.res.replace('×',' × ')} at ${PREF.hz} Hz`);
+  if(g.k==='sortGames'){S.sel=0;S.lsel=0}if(g.k==='sortApps')S.asel=0}
+ else if(g.t==='tog'){PREF[g.k]=!PREF[g.k];savePref();toast(g.k==='startup'?(PREF.startup?'Will open when Windows starts':'Won\'t open when Windows starts'):(PREF.pinpad?'PIN pad on':'PIN pad off'))}
+ else if(g.t==='map'){st.listen=g.keys[oi]}
+ else if(g.t==='btn'){const a=g.opts[oi][0];
+  if(a==='reset'){MAP={...DEFMAP};saveMap();toast('Mapping reset')}
+  if(a==='signout'){S.game=null;S.qm.open=false;go('login');return}
+  if(a==='exit'){st.confirm=true;st.cf=1}}
+ render();
+}
+function bright(d){PREF.bright=Math.max(10,Math.min(100,PREF.bright+d));savePref();applyBright();render()}
+function render(){
+ const fn={login:vLogin,welcome:vWelcome,home:vHome,library:vLibrary,game:vGame,settings:vSettings,closed:vClosed}[S.screen];
+ const sc=$('#scr');
+ $('#desk').style.display=S.screen==='desktop'?'block':'none';
+ sc.style.display=S.screen==='desktop'?'none':'block';
+ if(fn)sc.innerHTML=fn();
+ const el=S.screen==='desktop'?$('#desk'):sc;
+ if(S.last!==S.screen){el.classList.remove('enter');void el.offsetWidth;el.classList.add('enter');S.last=S.screen}
+ renderQM();renderOSK();hover();
+}
+function go(s){if(NATIVE&&s==='desktop'){S.qm.open=false;closeOsk();invoke('go_desktop');render();return}if(s==='settings'&&S.screen!=='settings')S.from=S.screen;S.screen=s;if(s!=='desktop')closeOsk();render()}
+
+/* ---------- quick menu ---------- */
+const QA=[['Resume','Back to game'],['Switch game','Opens Home'],['Desktop','Controller mouse'],['Record clip','Last 30 s'],['Discord','Pinned app'],['Quit game','Closes it']];
+function renderQM(){
+ const q=$('#qm');if(!S.qm.open){q.style.display='none';return}
+ q.style.display='block';const tr=NATIVE?npTrack():track(S.mi),pr=S.qm.side?360:0,g=S.game;
+ const acts=QA.map((a,i)=>`<button class="qa ${S.qm.row===0&&S.qm.col===i?'on':''}" data-act="qa:${i}"><span class="h" style="font-size:15px;font-weight:700">${a[0]}</span><span style="font-size:11px;opacity:.75">${a[1]}</span></button>`).join('');
+ const mon=i=>S.qm.row===1&&S.qm.col===i?'on':'';
+ const queue=[1,2,3,4].map(k=>{const t=track(S.mi+k);return `<div style="display:flex;gap:12px;align-items:center"><div style="width:40px;height:40px;border-radius:6px;flex:none;background:${t.art}"></div><div style="flex:1"><div style="font-size:14px;font-weight:600">${t.t}</div><div style="font-size:12px;color:#8d99b5">${t.a}</div></div><span style="font-size:12px;color:#8d99b5">${mmss(t.len)}</span></div>`}).join('');
+ q.innerHTML=`<div style="position:absolute;inset:0;background:rgba(5,8,16,.55)"></div>
+ <div style="position:absolute;left:0;right:${pr}px;bottom:0;padding:24px 40px 26px;background:rgba(10,15,28,.96);border-top:1px solid rgba(255,255,255,.08);display:flex;flex-direction:column;gap:18px">
+  <div style="display:flex;justify-content:space-between;align-items:center"><div style="display:flex;gap:14px;align-items:center"><div style="width:52px;height:52px;border-radius:12px;background:${g?grad(g):'rgba(255,255,255,.1)'}"></div><div><div class="h" style="font-size:19px;font-weight:700">${g?esc(g.t):'No game running'}</div><div style="font-size:13px;color:#a9b4cc;margin-top:3px">${g?'Playing for '+mmss(Math.floor((Date.now()-S.gameStart)/1000)):'Quick menu'}</div></div></div><span class="h" style="font-size:22px;font-weight:600">${clock()}</span></div>
+  <div style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px">${acts}</div>
+  <div style="display:flex;gap:16px;align-items:center">
+   <button class="mb spot ${mon(0)}" aria-label="Spotify sidebar" data-act="mus:spot"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg></button>
+   <button class="mb ${mon(1)}" aria-label="Previous track" data-act="mus:prev"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
+   <button class="mb big ${mon(2)}" aria-label="${S.playing?'Pause':'Play'}" data-act="mus:play">${S.playing?'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>':'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4v16l13-8z"/></svg>'}</button>
+   <button class="mb ${mon(3)}" aria-label="Next track" data-act="mus:next"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+   <div style="font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px"><b>${tr.t}</b> · ${tr.a}</div>
+   <span style="font-size:13px;color:#a9b4cc;margin-left:auto">Volume <small>(LB/RB)</small></span>
+   ${NATIVE?'':`<div class="bar" style="width:140px;height:6px"><i style="width:${S.vol}%;height:6px"></i></div><span style="font-size:13px;width:26px">${S.vol}</span>`}
+  </div>
+  <div class="hint"><span><b>↑↓←→</b>Move</span><span><b>A</b>Select</span><span><b>Y</b>Spotify</span><span><b>B</b>Close</span></div>
+ </div>
+ ${S.qm.side?`<aside aria-label="Spotify sidebar" style="position:absolute;top:0;right:0;bottom:0;width:360px;padding:24px;background:rgba(12,14,18,.98);border-left:1px solid rgba(255,255,255,.08);display:flex;flex-direction:column;gap:12px">
+  <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:13px;font-weight:600;color:#1ed760">Spotify · this PC</span><button class="btn" style="height:30px;font-size:12px;padding:0 12px" data-act="mus:spot">Close</button></div>
+  <div style="width:312px;height:200px;border-radius:14px;background:${tr.art}"></div>
+  <div><div class="h" style="font-size:20px;font-weight:700">${tr.t}</div><div class="muted" style="font-size:14px">${tr.a}</div></div>
+  <div><div class="bar"><i style="width:${Math.min(100,S.pos/tr.len*100)}%"></i></div><div style="display:flex;justify-content:space-between;font-size:11px;color:#8d99b5;margin-top:5px"><span>${mmss(S.pos)}</span><span>${mmss(tr.len)}</span></div></div>
+  <div style="font-size:12px;font-weight:600;color:#8d99b5;letter-spacing:1px;margin-top:6px">NEXT IN QUEUE</div>${NATIVE?'<p class="muted" style="font-size:13px;margin:0">The up-next queue needs your Spotify account. Connecting it comes in a later version.</p>':queue}
+  <div style="font-size:11px;color:#6d7891;margin-top:auto">${NATIVE?'From the Spotify app on this PC.':'Sample tracks. The real app reads these from Spotify.'}</div></aside>`:''}`;
+}
+function qmAct(i){if(NATIVE)return nQmAct(i);
+ const g=S.game;
+ if(i===0){S.qm.open=false;if(g&&S.screen!=='game')go('game');else render();return}
+ if(i===1){S.qm.open=false;go('home');return}
+ if(i===2){S.qm.open=false;go('desktop');return}
+ if(i===3){toast(g?'Clip saved: last 30 seconds':'Nothing to record');return}
+ if(i===4){toast('Would open Discord, pinned in Shortcuts');return}
+ if(i===5){if(!g){toast('No game running');return}toast('Closed '+g.t);S.game=null;S.qm.open=false;go('home')}
+}
+function mus(a){if(NATIVE&&a!=='spot')return nMus(a);
+ if(a==='spot')S.qm.side=!S.qm.side;
+ if(a==='prev'){S.mi--;S.pos=0;S.playing=true}
+ if(a==='next'){S.mi++;S.pos=0;S.playing=true}
+ if(a==='play')S.playing=!S.playing;
+ renderQM();
+}
+function qmBtn(b){if(NATIVE&&(b==='LB'||b==='RB')){invoke('media',{cmd:b==='LB'?'vol_down':'vol_up'});return}
+ const q=S.qm,max=q.row===0?5:3;
+ if(b==='B'){if(q.side)q.side=false;else q.open=false;render();return}
+ if(b==='Up'||b==='Down'){q.row=q.row?0:1;q.col=Math.min(q.col,q.row===0?5:3)}
+ if(b==='Left')q.col=Math.max(0,q.col-1);
+ if(b==='Right')q.col=Math.min(max,q.col+1);
+ if(b==='Y')q.side=!q.side;
+ if(b==='LB')S.vol=Math.max(0,S.vol-8);
+ if(b==='RB')S.vol=Math.min(100,S.vol+8);
+ if(b==='A'){if(q.row===0){qmAct(q.col);return}mus(['spot','prev','play','next'][q.col]);return}
+ renderQM();hover();
+}
+
+/* ---------- on-screen keyboard ---------- */
+function openOsk(el){
+ document.querySelectorAll('.tgt').forEach(e=>e.classList.remove('tgt'));
+ S.osk.open=true;S.osk.el=el;S.osk.caret=el.value.length;el.classList.add('tgt');if(document.activeElement)document.activeElement.blur();renderOSK();
+}
+function closeOsk(){if(S.osk.el)S.osk.el.classList.remove('tgt');S.osk.open=false;S.osk.el=null;renderOSK()}
+function renderOSK(){
+ const o=$('#osk');if(!S.osk.open){o.style.display='none';return}
+ o.style.display='flex';const el=S.osk.el,v=el.value,c=S.osk.caret;
+ const label=el.id==='dnotes'?'Notes':'Search';
+ const rows=OSK.map((r,ri)=>`<div class="krow">${r.map((k,ci)=>{const sp=k.length>1||k==='⌫';const lab=!sp&&S.osk.shift?k.toUpperCase():k;
+  return `<button class="k ${sp?'sp':''} ${ri===S.osk.r&&ci===S.osk.c?'on':''} ${k==='Shift'&&S.osk.shift?'lit':''}" style="flex:${OSKW[k]||1} 1 0" data-act="osk:${ri}:${ci}">${esc(lab)}<span>${OSKH[k]||''}</span></button>`}).join('')}</div>`).join('');
+ o.innerHTML=`<div class="preview"><span class="muted" style="font-size:13px;width:56px">${label}</span><code>${esc(v.slice(0,c).replace(/\n/g,' ⏎ '))}<span class="caret"></span>${esc(v.slice(c).replace(/\n/g,' ⏎ '))}</code></div>${rows}
+ <div class="hint" style="justify-content:center;font-size:12px;gap:16px"><span><b>A</b>Key</span><span><b>B</b>Backspace</span><span><b>X</b>Shift</span><span><b>Y</b>Space</span><span><b>LB</b><b>RB</b>Move text cursor</span><span><b>Menu</b>Enter</span><span><b>View</b>Hide</span><span><b>RS</b>Mouse</span></div>`;
+}
+function oskKey(k){
+ const o=S.osk,el=o.el;if(!el)return;let v=el.value,c=o.caret;
+ if(k==='Hide'){closeOsk();return}
+ if(k==='Shift'){o.shift=!o.shift;renderOSK();return}
+ if(k==='⌫'){if(c>0){v=v.slice(0,c-1)+v.slice(c);c--}}
+ else if(k==='Enter'){if(el.tagName==='TEXTAREA'){v=v.slice(0,c)+'\n'+v.slice(c);c++}else{closeOsk();toast(v.trim()?'Searched for “'+v.trim()+'”':'Search is empty');return}}
+ else{const ins=k==='Space'?' ':(o.shift&&k.length===1?k.toUpperCase():k);v=v.slice(0,c)+ins+v.slice(c);c+=ins.length;if(k!=='Space')o.shift=false}
+ el.value=v;o.caret=c;renderOSK();
+}
+function oskBtn(b){
+ const o=S.osk;
+ if(b==='Up'){o.r=Math.max(0,o.r-1);o.c=Math.min(o.c,OSK[o.r].length-1)}
+ else if(b==='Down'){o.r=Math.min(OSK.length-1,o.r+1);o.c=Math.min(o.c,OSK[o.r].length-1)}
+ else if(b==='Left')o.c=Math.max(0,o.c-1);
+ else if(b==='Right')o.c=Math.min(OSK[o.r].length-1,o.c+1);
+ else if(b==='A'){oskKey(OSK[o.r][o.c]);return}
+ else if(b==='B'){oskKey('⌫');return}
+ else if(b==='X'){oskKey('Shift');return}
+ else if(b==='Y'){oskKey('Space');return}
+ else if(b==='Menu'){oskKey('Enter');return}
+ else if(b==='View'){closeOsk();return}
+ else if(b==='LB')o.caret=Math.max(0,o.caret-1);
+ else if(b==='RB')o.caret=Math.min(o.el.value.length,o.caret+1);
+ renderOSK();
+}
+
+/* ---------- per-screen input ---------- */
+function pinPress(k){
+ if(S.screen!=='login')return;
+ const el=document.getElementById('pk-'+k);
+ if(k==='del')S.pin=S.pin.slice(0,-1);
+ else if(k==='enter'){if(S.pin.length===4)signIn();else toast('Enter 4 digits');return}
+ else if(S.pin.length<4)S.pin+=k;
+ render();const e2=document.getElementById('pk-'+k);if(e2){e2.classList.add('flash');setTimeout(()=>e2.classList.remove('flash'),140)}
+ if(S.pin.length===4)setTimeout(signIn,300);
+}
+function signIn(){if(S.screen!=='login')return;S.pin='';go('welcome');setTimeout(()=>go('home'),1100)}
+const homeList=()=>S.htab==='apps'?sortBy(APPS,PREF.sortApps):sortBy(GAMES.filter(g=>!g.tags.includes('ni')),PREF.sortGames).slice(0,10);
+function launch(g){if(NATIVE)return nLaunch(g);if(!g)return;if(g.tags.includes('ni')){toast('Not installed: would open Steam to install '+g.t);return}
+ if(S.game&&S.game!==g)toast('Closed '+S.game.t);
+ g.lp=-(++LPC);g.last='Just now';if(g.app){if(PREF.sortApps==='recent')S.asel=0}else if(PREF.sortGames==='recent')S.sel=0;if(S.game!==g)S.gameStart=Date.now();S.game=g;S.qm.open=false;go('game')}
+const SCREEN={
+ login(b){if(!PREF.pinpad)return;const d=Object.keys(MAP).find(k=>MAP[k]===b);if(d)pinPress(d)},
+ home(b){
+  const ap=S.htab==='apps',n=homeList().length,k=ap?'asel':'sel';
+  if(b==='LB'||b==='RB')S.htab=ap?'games':'apps';
+  else if(b==='Left')S[k]=Math.max(0,S[k]-1);else if(b==='Right')S[k]=Math.max(0,Math.min(n-1,S[k]+1));
+  else if(b==='A'){launch(homeList()[S[k]]);return}else if(b==='Y'){go('library');return}
+  else if(b==='Menu'){go('settings');return}else if(b==='View'){go('desktop');return}
+  else if(b==='X'){toast('Options: change art, add to collection, virtual controller');return}
+  render()},
+ library(b){
+  const n=lib().length;
+  if(b==='LB'||b==='RB'){S.tab=(S.tab+(b==='RB'?1:TABS.length-1))%TABS.length;S.lsel=0}
+  else if(b==='Left')S.lsel=Math.max(0,S.lsel-1);else if(b==='Right')S.lsel=Math.min(n-1,S.lsel+1);
+  else if(b==='Up')S.lsel=Math.max(0,S.lsel-7);else if(b==='Down')S.lsel=Math.min(n-1,S.lsel+7);
+  else if(b==='A'){launch(lib()[S.lsel]);return}else if(b==='B'){go('home');return}
+  render()},
+ game(b){},
+ desktop(b){if(b==='B'&&false)return},
+ settings(b){
+  const st=S.set;
+  if(st.confirm){if(b==='Left'||b==='Right')st.cf=st.cf?0:1;else if(b==='A'){act('cf:'+st.cf);return}else if(b==='B')st.confirm=false;render();return}
+  if(st.side){
+   if(b==='Up')st.sec=Math.max(0,st.sec-1);else if(b==='Down')st.sec=Math.min(SECS.length-1,st.sec+1);
+   else if(b==='Right'||b==='A'){st.side=false;st.g=0;st.o=0}else if(b==='B'){go(S.from==='settings'?'home':S.from);return}
+   if(b==='Up'||b==='Down'){st.g=0;st.o=0}
+   render();return}
+  const gs=groups(),g=gs[st.g];
+  if(b==='Up'&&st.g>0){st.g--;st.o=Math.min(st.o,gCount(gs[st.g])-1)}
+  else if(b==='Down'&&st.g<gs.length-1){st.g++;st.o=Math.min(st.o,gCount(gs[st.g])-1)}
+  else if(b==='Left'){if(g.t==='slider'){bright(-10);return}if(st.o>0)st.o--;else st.side=true}
+  else if(b==='Right'){if(g.t==='slider'){bright(10);return}st.o=Math.min(gCount(g)-1,st.o+1)}
+  else if(b==='A'){sgAct(st.g,st.o);return}
+  else if(b==='B')st.side=true;
+  render()},
+ closed(b){if(b==='A')act('relaunch')}
+};
+const DIRS=new Set(['Up','Down','Left','Right']);
+function assign(b){
+ const k=S.set.listen,old=MAP[k],other=Object.keys(MAP).find(x=>MAP[x]===b);
+ if(other)MAP[other]=old;MAP[k]=b;S.set.listen=false;saveMap();toast(`${pinName(k)} is now ${b}`);render();
+}
+function handle(b){
+ if(S.help){if(b==='A'||b==='B')toggleHelp();return}
+ if(S.screen==='settings'&&S.set.listen){if(b==='Guide'){S.set.listen=false;render();return}if(!DIRS.has(b))assign(b);return}
+ if(b==='Guide'){if(S.screen==='login'||S.screen==='welcome'||S.screen==='closed')return;if(S.osk.open)closeOsk();S.qm.open=!S.qm.open;S.qm.row=0;S.qm.col=0;S.qm.side=false;render();return}
+ if(b==='A'&&S.screen!=='login'&&Date.now()-S.ct<2500&&clickAtCursor())return;
+ if(S.osk.open){oskBtn(b);return}
+ if(S.qm.open){qmBtn(b);return}
+ (SCREEN[S.screen]||(()=>{}))(b);
+}
+
+/* ---------- actions (mouse, touch, cursor) ---------- */
+function act(a){
+ const [n,x,y]=a.split(':'),i=+x;
+ if(n==='pin')pinPress(x);
+ else if(n==='sel'){const k=S.htab==='apps'?'asel':'sel';if(S[k]===i)launch(homeList()[i]);else{S[k]=i;render()}}
+ else if(n==='play')launch(homeList()[S.htab==='apps'?S.asel:S.sel]);
+ else if(n==='htab'){S.htab=x;render()}
+ else if(n==='go')go(x);
+ else if(n==='tab'){S.tab=i;S.lsel=0;render()}
+ else if(n==='lib'){if(S.lsel===i)launch(lib()[i]);else{S.lsel=i;render()}}
+ else if(n==='qa'){S.qm.row=0;S.qm.col=i;qmAct(i)}
+ else if(n==='mus')mus(x);
+ else if(n==='osk'){S.osk.r=i;S.osk.c=+y;oskKey(OSK[i][+y])}
+ else if(n==='sec'){S.set.sec=i;S.set.side=true;S.set.g=0;S.set.o=0;render()}
+ else if(n==='sg')sgAct(i,+y);
+ else if(n==='sl')bright(i);
+ else if(n==='cf'){S.set.confirm=false;if(i===0){if(NATIVE){invoke('exit_app');return}S.game=null;S.qm.open=false;closeOsk();go('closed')}else render()}
+ else if(n==='relaunch'){S.set.side=true;go('home')}
+ else if(n==='reset'){MAP={...DEFMAP};saveMap();toast('Mapping reset');render()}
+ else if(n==='signout'){S.game=null;S.qm.open=false;go('login')}
+ else if(n==='rescan'){toast('Scanning…');if(NATIVE)(x==='apps'?loadApps():loadGames())}
+ else if(n==='toast')toast(a.slice(6));
+ else if(n==='help')toggleHelp();
+}
+document.addEventListener('click',e=>{const a=e.target.closest('[data-act]');if(a){e.preventDefault();act(a.dataset.act)}});
+['dsearch','dnotes'].forEach(id=>{const el=document.getElementById(id);el.addEventListener('mousedown',()=>{if(S.osk.open)closeOsk()})});
+
+/* ---------- virtual cursor ---------- */
+const cur=$('#cur');
+function stagePt(){if(NATIVE)return[S.mx||0,S.my||0];const r=stage.getBoundingClientRect(),s=r.width/1280;return[r.left+S.cx*s+1,r.top+S.cy*s+1]}
+function moveCursor(dx,dy){S.cx=Math.max(0,Math.min(1278,S.cx+dx));S.cy=Math.max(0,Math.min(718,S.cy+dy));S.ct=Date.now();cur.style.transform=`translate(${S.cx}px,${S.cy}px)`;cur.style.opacity=1;hover()}
+function hover(){
+ document.querySelectorAll('.hov').forEach(e=>e.classList.remove('hov'));
+ if(Date.now()-S.ct>2500)return;
+ const [x,y]=stagePt(),el=document.elementFromPoint(x,y);if(!el)return;
+ const t=el.closest('[data-act],input,textarea');if(t&&stage.contains(t))t.classList.add('hov');
+}
+function clickAtCursor(){
+ const [x,y]=stagePt(),el=document.elementFromPoint(x,y);if(!el||!stage.contains(el))return false;
+ const inp=el.closest('input,textarea');if(inp&&S.screen==='desktop'){openOsk(inp);return true}
+ const a=el.closest('[data-act]');if(a){act(a.dataset.act);return true}
+ return false;
+}
+setInterval(()=>{if(Date.now()-S.ct>2500&&cur.style.opacity==='1'){cur.style.opacity=0;hover()}},500);
+
+/* ---------- gamepad ---------- */
+const BTN=['A','B','X','Y','LB','RB','LT','RT','View','Menu','L3','R3','Up','Down','Left','Right','Guide'];
+let held={},rep={},chord=false,lastT=0;
+function poll(t){if(NATIVE)return;
+ const dt=Math.min(50,t-(lastT||t))/1000;lastT=t;
+ const pads=navigator.getGamepads?navigator.getGamepads():[];let gp=null;
+ for(const p of pads)if(p&&p.connected){gp=p;break}
+ if(gp){
+  if(S.pad!==gp.id){S.pad=gp.id;chip();if(S.screen==='login'||S.screen==='home')render()}
+  const now={};BTN.forEach((b,i)=>{const x=gp.buttons[i];now[b]=!!x&&(x.pressed||x.value>.5)});
+  const lx=gp.axes[0]||0,ly=gp.axes[1]||0,rx=gp.axes[2]||0,ry=gp.axes[3]||0;
+  const leftIsMouse=S.screen==='desktop'&&!S.osk.open&&!S.qm.open;
+  if(!leftIsMouse){if(lx<-.55)now.Left=true;if(lx>.55)now.Right=true;if(ly<-.55)now.Up=true;if(ly>.55)now.Down=true}
+  const stick=(x,y)=>{const m=Math.hypot(x,y);if(m<.18)return;const k=(m-.18)/(.82)*1100*dt*((m-.18)/.82+.3);moveCursor(x/m*k,y/m*k)};
+  stick(rx,ry);if(leftIsMouse)stick(lx,ly);
+  if(now.View&&now.Menu&&!chord){chord=true;handle('Guide')}
+  for(const b of BTN){
+   const p=now[b],w=held[b];
+   if(b==='View'||b==='Menu'){if(!p&&w&&!chord)handle(b)}
+   else if(p&&!w){handle(b);rep[b]=t+380}
+   else if(p&&w&&DIRS.has(b)&&t>=rep[b]){handle(b);rep[b]=t+110}
+  }
+  if(!now.View&&!now.Menu)chord=false;
+  held=now;
+ }else if(S.pad){S.pad='';chip()}
+ requestAnimationFrame(poll);
+}
+requestAnimationFrame(poll);
+function chip(){$('#chip i').className=S.pad?'ok':'';$('#chipt').textContent=S.pad?'Controller: '+S.pad.slice(0,48):'No controller yet · press any button on it'}
+
+/* ---------- keyboard ---------- */
+const KEY={ArrowUp:'Up',ArrowDown:'Down',ArrowLeft:'Left',ArrowRight:'Right',Enter:'A',' ':'A',Escape:'B',Backspace:'B',x:'X',y:'Y',q:'LB',e:'RB',z:'LT',c:'RT',Tab:'View',m:'Menu',g:'Guide','[':'L3',']':'R3'};
+document.addEventListener('keydown',e=>{
+ const t=e.target;if(t&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA')){if(e.key==='Escape')t.blur();return}
+ if(S.screen==='login'&&!S.help){if(/^[0-9]$/.test(e.key)){pinPress(e.key);return}if(e.key==='Backspace'){pinPress('del');e.preventDefault();return}if(e.key==='Enter'){pinPress('enter');return}}
+ const k=e.key.length===1?e.key.toLowerCase():e.key;
+ if(k==='h'||k==='?'){toggleHelp();return}
+ const n={i:[0,-28],k:[0,28],j:[-28,0],l:[28,0]}[k];if(n){moveCursor(n[0],n[1]);return}
+ if(S.screen==='desktop'&&!S.osk.open&&!S.qm.open&&k.startsWith('Arrow')){const d={ArrowUp:[0,-28],ArrowDown:[0,28],ArrowLeft:[-28,0],ArrowRight:[28,0]}[k];moveCursor(d[0],d[1]);e.preventDefault();return}
+ const b=KEY[k];if(b){e.preventDefault();handle(b)}
+});
+
+/* ---------- help ---------- */
+function toggleHelp(){
+ S.help=!S.help;const h=$('#help');h.style.display=S.help?'flex':'none';if(!S.help)return;
+ const rows=[['D-pad / left stick','Arrow keys'],['Right stick (mouse cursor)','I J K L (arrows on the desktop)'],['A','Enter or Space'],['B','Esc or Backspace'],['X / Y','X / Y'],['LB / RB','Q / E'],['LT / RT','Z / C'],['View / Menu','Tab / M'],['Guide (or View + Menu together)','G'],['L3 / R3','[ / ]'],['Sign-in screen','Number keys type digits directly']];
+ h.innerHTML=`<div class="box"><h2 class="h" style="margin:0 0 6px;font-size:24px">Controls</h2><p class="muted" style="margin:0 0 14px;font-size:13px">Plug in or pair your controller and press any button so the browser can see it. Browsers usually don't pass the Xbox Guide button through, so use View + Menu together for the quick menu.</p>
+ <table>${rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('')}</table>
+ <div style="margin-top:18px;display:flex;justify-content:flex-end"><button class="btn pri" data-act="help">Got it</button></div></div>`;
+}
+
+/* ---------- native (the Windows app) ---------- */
+function invoke(cmd,args){if(!NATIVE)return Promise.resolve(null);return window.__TAURI__.core.invoke(cmd,args||{}).catch(e=>{console.error(cmd,e);return null})}
+const hue=s=>{let h=0;for(const c of s)h=(h*31+c.charCodeAt(0))>>>0;return h%360};
+const colors=n=>{const h=hue(n);return[`hsl(${h} 45% 16%)`,`hsl(${(h+40)%360} 55% 42%)`]};
+const PLAYED=(()=>{try{return JSON.parse(localStorage.getItem('cm-played')||'{}')}catch(e){return{}}})();
+const savePlayed=()=>{try{localStorage.setItem('cm-played',JSON.stringify(PLAYED))}catch(e){}};
+function ago(ts){if(!ts)return 'Never';const d=Math.floor((Date.now()/1000-ts)/86400);return d<=0?'Today':d===1?'Yesterday':d<30?d+' days ago':d<60?'Last month':Math.floor(d/30)+' months ago'}
+const isoDate=s=>s?new Date(s*1000).toISOString():'';
+const fsrc=p=>p?window.__TAURI__.core.convertFileSrc(p).replace(/'/g,'%27').replace(/\(/g,'%28').replace(/\)/g,'%29'):null;
+const gmeta=g=>[g.s,g.h!=null&&g.h+' h played',g.gb!=null&&g.gb+' GB'].filter(Boolean).join(' · ');
+async function loadGames(){
+ const list=await invoke('scan_games')||[];
+ GAMES.length=0;
+ for(const g of list){const ts=Math.max(g.last_played||0,PLAYED[g.id]||0),[c1,c2]=colors(g.name);
+  GAMES.push({id:g.id,t:g.name,s:g.source,last:ago(ts),ts,lp:ts?-ts:1e12,inst:isoDate(g.installed),h:null,gb:g.size_gb,c1,c2,tags:[],cover:fsrc(g.cover),hero:fsrc(g.hero),kind:g.launch_kind,target:g.launch_target,workdir:g.workdir||null})}
+ S.sel=0;S.lsel=0;S.scanned=true;render();
+}
+async function loadApps(){
+ const list=await invoke('scan_apps')||[];
+ APPS.length=0;
+ for(const a of list){const id='app:'+a.app_id,ts=PLAYED[id]||0,[c1,c2]=colors(a.name);
+  APPS.push({id,t:a.name,s:'Installed app',last:ago(ts),ts,lp:ts?-ts:1e12,inst:'',app:true,c1,c2,tags:[],kind:'appid',target:a.app_id})}
+ S.asel=0;S.appsScanned=true;render();
+}
+async function nLaunch(g){
+ if(!g)return;
+ const ok=await invoke('launch',{kind:g.kind,target:g.target,workdir:g.workdir||null});
+ if(!ok){toast('Couldn’t open '+g.t);return}
+ const now=Date.now()/1000;PLAYED[g.id]=now;savePlayed();g.ts=now;g.lp=-now;g.last='Just now';
+ S.game=g;S.qm.open=false;
+ if(g.app){if(PREF.sortApps==='recent')S.asel=0}else if(PREF.sortGames==='recent')S.sel=0;
+ S.screen='home';render();
+}
+async function nQmAct(i){
+ const g=S.game;S.qm.open=false;
+ if(i===0){if(g&&!(await invoke('resume_game')))toast('Couldn’t find the game window');render();return}
+ if(i===1){go('home');return}
+ if(i===2){go('desktop');return}
+ if(i===3){if(!(await invoke('record_clip')))toast('No game window to record');render();return}
+ if(i===4){if(await invoke('launch',{kind:'uri',target:'discord://',workdir:null}))invoke('set_mode',{mode:'desktop'});else toast('Discord isn’t installed');render();return}
+ if(i===5){if(!g){toast('No game running');render();return}await invoke('quit_game');toast('Closed '+g.t);S.game=null;go('home')}
+}
+function nMus(a){invoke('media',{cmd:a==='play'?'play_pause':a});setTimeout(pollNp,500);setTimeout(pollNp,1600)}
+async function pollNp(){if(!NATIVE)return;const n=await invoke('now_playing');S.np=n;if(n)S.playing=n.playing;if(S.qm.open)renderQM()}
+function npTrack(){const n=S.np;return{t:n&&n.title?esc(n.title):(n?'Paused':'Nothing playing'),a:n&&n.artist?esc(n.artist):(n?'Spotify':'Open Spotify to play music'),len:0,art:'linear-gradient(135deg,#123522,#1ed760)'}}
+function npCard(){if(!NATIVE){const tr=track(S.mi);return `<b style="font-size:15px">${tr.t}</b><small>${tr.a} · ${S.playing?'Playing':'Paused'}</small>`}const t=npTrack();return `<b style="font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.t}</b><small>${t.a}</small>`}
+function resOpts(){if(!NATIVE||!S.dm||!S.dm.all.length)return[['1920×1080','1920 × 1080'],['2560×1440','2560 × 1440'],['3840×2160','3840 × 2160']];const seen=[];for(const m of S.dm.all){const k=m.w+'×'+m.h;if(!seen.includes(k))seen.push(k)}return seen.slice(0,5).map(k=>[k,k.replace('×',' × ')])}
+function hzOpts(){if(!NATIVE||!S.dm||!S.dm.all.length)return[['60','60 Hz'],['120','120 Hz'],['144','144 Hz']];const [w,h]=PREF.res.split('×').map(Number);const hz=[...new Set(S.dm.all.filter(m=>m.w===w&&m.h===h).map(m=>m.hz))].sort((a,b)=>b-a).slice(0,5);return hz.length?hz.map(z=>[String(z),z+' Hz']):[[PREF.hz,PREF.hz+' Hz']]}
+async function loadDisplay(){const d=await invoke('display_modes');if(!d)return;S.dm=d;if(d.current){PREF.res=d.current.w+'×'+d.current.h;PREF.hz=String(d.current.hz)}if(S.screen==='settings')render()}
+function nSgAct(gi,oi){
+ const g=groups()[gi];if(!g)return false;
+ const focus=()=>{S.set.side=false;S.set.g=gi;S.set.o=oi};
+ if(g.t==='seg'&&g.k==='power'){const v=g.opts[oi][0];PREF.power=v;savePref();focus();render();invoke('set_power',{mode:v}).then(ok=>toast(ok?'Power mode: '+g.opts[oi][1]:'Couldn’t change the power mode'));return true}
+ if(g.t==='seg'&&(g.k==='res'||g.k==='hz')){
+  if(!S.dm||!S.dm.all.length){toast('Couldn’t read this display’s modes');return true}
+  let w,h,hz;
+  if(g.k==='res'){[w,h]=g.opts[oi][0].split('×').map(Number);const c=S.dm.all.filter(m=>m.w===w&&m.h===h).sort((a,b)=>b.hz-a.hz)[0];hz=c?c.hz:60}
+  else{[w,h]=PREF.res.split('×').map(Number);hz=Number(g.opts[oi][0])}
+  focus();render();
+  invoke('set_display',{w,h,hz}).then(ok=>{toast(ok?`Display set to ${w} × ${h} at ${hz} Hz`:'This display didn’t accept that mode');loadDisplay()});
+  return true}
+ if(g.t==='tog'&&g.k==='startup'){const on=!PREF.startup;focus();invoke('autostart_set',{on}).then(ok=>{if(ok){PREF.startup=on;savePref();toast(on?'Will open when Windows starts':'Won’t open when Windows starts')}else toast('Couldn’t change the startup setting');render()});return true}
+ return false;
+}
+let bT;function nBright(){clearTimeout(bT);bT=setTimeout(async()=>{if(!(await invoke('set_brightness',{value:PREF.bright})))toast('This screen doesn’t let Windows change its brightness')},300)}
+function statRows(){if(!NATIVE)return[['CPU',ST.cpu,100,'%','#5B9BFF'],['GPU',ST.gpu,100,'%','#3FE08A'],['Memory',ST.ram,100,'%','#C79BFF'],['CPU temperature',ST.temp,100,' °C','#FF8A3D']];return[['CPU',ST.cpu,100,'%','#5B9BFF'],['GPU',ST.gpu,100,S.gpuNA?'% (n/a)':'%','#3FE08A'],['Memory',ST.ram,100,'%','#C79BFF']]}
+async function pollStats(){const s=await invoke('stats');if(!s)return;const push=(a,v)=>{a.push(Math.round(v||0));a.shift()};push(ST.cpu,s.cpu);push(ST.gpu,s.gpu);S.gpuNA=s.gpu==null;push(ST.ram,s.mem);S.memText=`Memory: ${s.mem_used_gb} of ${s.mem_total_gb} GB in use.`}
+function emptyHome(ap){
+ const msg=ap?(S.appsScanned?'No entertainment apps found yet. Netflix, Prime Video, Spotify, YouTube and others show up here once they’re installed.':'Looking for your apps…'):(S.scanned?'No games found yet. Console Mode looks in Steam, Epic Games and GOG.':'Looking for your games…');
+ return `<header style="position:absolute;left:48px;right:48px;top:22px;display:flex;align-items:center;justify-content:space-between">
+  <nav style="display:flex;gap:30px"><button data-act="htab:games" style="font-size:19px;${ap?'color:rgba(255,255,255,.55)':'font-weight:600'}">Games</button><button data-act="htab:apps" style="font-size:19px;${ap?'font-weight:600':'color:rgba(255,255,255,.55)'}">Apps</button></nav>
+  <div style="display:flex;gap:12px;align-items:center"><button class="ic" aria-label="Settings" data-act="go:settings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg></button><span class="clk" style="font-size:19px;font-weight:500">${clock()}</span></div></header>
+ <section style="position:absolute;left:48px;top:240px;width:640px;display:flex;flex-direction:column;gap:18px"><div class="h" style="font-size:40px;font-weight:700;line-height:1.05">${ap?'Apps':'Games'}</div><p class="muted" style="margin:0;font-size:16px">${msg}</p>
+ <div style="display:flex;gap:12px"><button class="btn pri" data-act="rescan:${ap?'apps':'games'}">Scan again</button><button class="btn" data-act="go:desktop">Desktop</button></div></section>
+ <div class="hint" style="position:absolute;left:48px;bottom:28px"><span><b>LB</b><b>RB</b>Games / Apps</span><span><b>Menu</b>Settings</span><span><b>View</b>Desktop</span></div>`;
+}
+if(NATIVE){
+ const ev=window.__TAURI__.event;
+ ev.listen('pad',e=>handle(e.payload));
+ ev.listen('guide',()=>{if(S.osk.open)closeOsk();if(S.screen==='settings'&&S.set.listen)return;
+  if(S.qm.open){S.qm.open=false;if(S.game)invoke('resume_game');render();return}
+  S.qm.open=true;S.qm.row=0;S.qm.col=0;S.qm.side=false;pollNp();render()});
+ ev.listen('home',()=>{S.qm.open=false;go('home')});
+ ev.listen('padstatus',e=>{S.pad=e.payload?'Xbox-style controller':'';if(S.screen==='home')render()});
+ window.addEventListener('focus',()=>{if(!S.game)invoke('set_mode',{mode:'console'})});
+ document.addEventListener('mousemove',e=>{S.ct=Date.now();S.mx=e.clientX;S.my=e.clientY;hover()});
+ $('#cur').style.display='none';$('#chip').style.display='none';
+ TABS=[['All games',()=>true],['Steam',g=>g.s==='Steam'],['Epic',g=>g.s==='Epic'],['GOG',g=>g.s==='GOG'],['Never played',g=>!g.ts]];
+ GAMES.length=0;APPS.length=0;
+ loadGames();loadApps();loadDisplay();
+ invoke('autostart_get').then(v=>{if(v!=null){PREF.startup=v;savePref()}});
+ invoke('get_brightness').then(v=>{if(v!=null)PREF.bright=v});
+ setInterval(()=>{if(S.screen==='settings'&&SECS[S.set.sec][1]==='power')pollStats()},1000);
+ setInterval(()=>{if(S.qm.open||S.screen==='home')pollNp()},3000);
+ pollNp();
+}
+
+/* ---------- timers, scaling ---------- */
+setInterval(()=>{
+ document.querySelectorAll('.clk').forEach(e=>e.textContent=clock());
+ if(S.playing){S.pos++;if(S.pos>=track(S.mi).len){S.mi++;S.pos=0}}
+ tickStats();if(S.qm.open)renderQM();if(S.screen==='settings'&&SECS[S.set.sec][1]==='power'&&!S.set.confirm)render();
+ const gt=$('#gt');if(gt&&S.game)gt.textContent=mmss(Math.floor((Date.now()-S.gameStart)/1000));
+},1000);
+function fit(){const s=Math.min(innerWidth/1280,innerHeight/720);stage.style.transform=`scale(${s})`}
+addEventListener('resize',fit);fit();applyBright();
+document.querySelectorAll('.clk').forEach(e=>e.textContent=clock());
+render();
+}
+</script>
+</body>
+</html>

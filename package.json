@@ -1,0 +1,14 @@
+{
+  "name": "console-mode",
+  "private": true,
+  "version": "0.1.0",
+  "description": "A console-style launcher for Windows, driven by a controller",
+  "scripts": {
+    "tauri": "tauri",
+    "build": "tauri build",
+    "dev": "tauri dev"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}

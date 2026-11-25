@@ -1,0 +1,79 @@
+name: Build Windows installer
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-windows
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "src-tauri -> target"
+
+      - name: Install Tauri CLI
+        run: npm install
+
+      - name: Native unit tests
+        shell: bash
+        run: |
+          set -o pipefail
+          cargo test --manifest-path native/Cargo.toml 2>&1 | tee test.log
+
+      - name: Build installer
+        shell: bash
+        run: |
+          set -o pipefail
+          npx tauri build 2>&1 | tee build.log
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: ConsoleMode-installer
+          path: src-tauri/target/release/bundle/nsis/*.exe
+
+      - name: Publish "latest" release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest --yes --cleanup-tag || true
+          gh release create latest src-tauri/target/release/bundle/nsis/*.exe \
+            --prerelease --title "Latest build" \
+            --notes "Built automatically from ${GITHUB_SHA::7}. Download the .exe below and run it to install Console Mode."
+
+      # Saves the build log to the ci-logs branch so it can be read without signing in.
+      - name: Save build log
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/logs" && cd "$RUNNER_TEMP/logs"
+          git init -q && git checkout -q -b ci-logs
+          echo "${{ job.status }} ${GITHUB_SHA}" > status.txt
+          for f in test.log build.log; do
+            if [ -f "$GITHUB_WORKSPACE/$f" ]; then
+              sed -r 's/\x1B\[[0-9;]*[A-Za-z]//g' "$GITHUB_WORKSPACE/$f" > "$f"
+            fi
+          done
+          git add -A
+          git -c user.name=ci -c user.email=ci@users.noreply.github.com commit -qm "CI log for ${GITHUB_SHA::7}"
+          git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" ci-logs
