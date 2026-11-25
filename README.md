@@ -15,26 +15,33 @@ Windows SmartScreen may warn that the app is unrecognised, because the installer
 | Where | Controller |
 | --- | --- |
 | Anywhere | **Guide**, or **View + Menu** together: quick menu |
-| Console | D-pad or left stick to move, **A** to select, **B** back, **LB/RB** Games or Apps, **Y** Library, **Menu** Settings, **View** Desktop |
-| Console | Right stick moves the mouse pointer; **A** clicks what it points at |
-| Desktop | Either stick moves the mouse, **A** click (hold to drag), **B** right-click, D-pad up/down scroll, **Y** on-screen keyboard, **View** back to the console |
-| Quick menu | Resume, Switch game, Desktop, Record clip (Game Bar), Discord, Quit game. Music: previous, play/pause, next; **LB/RB** volume; **Y** Spotify panel |
+| Console | D-pad or left stick to move, **A** select, **B** back, **LB/RB** Games or Apps, **X** options, **Y** Library, **Menu** Settings, **View** Desktop. Right stick moves the pointer; **A** clicks what it points at |
+| Desktop and apps | Sticks move the pointer, **A** click (hold to drag), **B** right-click, D-pad scrolls, **LB/RB** back/forward, **Y** keyboard, **View** back to the console. Clicking a text field opens the keyboard by itself |
+| Keyboard | D-pad or left stick to pick a key, **A** type it, **B** backspace, **X** shift, **Y** space, **LB/RB** move the text cursor, **Menu** enter, **View** close |
+| Full-screen games | The pointer stays off; only Guide (or View + Menu) is used |
+| Quick menu | Resume, Switch game, Desktop, Record clip (Game Bar), Discord, Quit game. Music: previous, play/pause, next, volume; **LB/RB** volume; **Y** Spotify panel |
 
 Works with Xbox-style controllers (XInput), including most third-party pads in XInput mode.
 
-## What it does today (v0.1)
+## What it does (v0.2)
 
-- Finds installed games from **Steam**, **Epic Games** and **GOG**, with Steam artwork.
+- Finds games from **Steam**, **Epic Games** and **GOG** (with Steam artwork), plus any game you add yourself.
 - Finds entertainment **apps** from the Start menu (Netflix, Prime Video, Spotify, YouTube, JioHotstar, VLC, Plex…).
-- Sorts games and apps by recently played, name, or recently installed.
-- Music controls work with any player. Now playing is read from the Spotify app.
-- Settings: brightness, power mode, resolution, refresh rate, live CPU, GPU and memory, start with Windows, exit.
+- Favourite or hide games and apps, open install folders, sort by recently played, name or recently installed.
+- Music from any app through Windows: title, artist, cover art, progress, play/pause, next/previous, system volume. Connect Spotify in **Settings › Music** to see the up-next queue.
+- Settings: pointer speed, brightness (laptops and DDC/CI monitors), power mode, resolution, refresh rate, live CPU/GPU/memory, start with Windows, exit.
+- Moving particle background (can be turned off in Settings).
+
+### Connecting Spotify (optional, for the queue)
+
+1. Open developer.spotify.com/dashboard and create an app.
+2. Add the Redirect URI `http://127.0.0.1:43821/callback` and tick **Web API**.
+3. Copy the app's Client ID into **Settings › Music**, then press **Connect Spotify** and sign in.
 
 ## Not yet
 
 - Controller PIN pad on the Windows sign-in screen (a separate sign-in plug-in, planned).
-- On-screen keyboard that opens by itself on text fields (for now, **Y** on the desktop opens Windows' keyboard).
-- Spotify queue (needs Spotify sign-in), PlayStation and Bluetooth-mode controllers, Xbox app and EA games, TV on/off.
+- PlayStation controllers and pads in Bluetooth mode, Xbox app and EA games, TV on/off.
 
 ## Project layout
 
