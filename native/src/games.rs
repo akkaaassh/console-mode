@@ -25,6 +25,10 @@ pub struct Game {
     /// Local artwork paths (portrait cover and wide hero image), when found.
     pub cover: Option<String>,
     pub hero: Option<String>,
+    /// The game's title logo, when found locally.
+    pub logo: Option<String>,
+    /// Steam app id, for fetching Steam's artwork.
+    pub steam_appid: Option<String>,
 }
 
 pub fn scan() -> Vec<Game> {
@@ -139,6 +143,8 @@ fn steam() -> Vec<Game> {
                 size_gb,
                 cover: steam_art(&cache, appid, "library_600x900"),
                 hero: steam_art(&cache, appid, "library_hero"),
+                logo: steam_art(&cache, appid, "logo"),
+                steam_appid: Some(appid.to_string()),
             });
         }
     }
@@ -210,6 +216,8 @@ fn epic() -> Vec<Game> {
             size_gb,
             cover: None,
             hero: None,
+            logo: None,
+            steam_appid: None,
         });
     }
     out
@@ -238,6 +246,8 @@ fn gog() -> Vec<Game> {
             size_gb: None,
             cover: None,
             hero: None,
+            logo: None,
+            steam_appid: None,
         });
     }
     out

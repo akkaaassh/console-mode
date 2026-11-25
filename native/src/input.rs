@@ -3,11 +3,12 @@
 //! Polls XInput (Xbox-style pads, including third-party pads in XInput mode)
 //! about 120 times a second and decides what each button means, based on
 //! what is in front:
-//! - Console (our window): buttons go to the UI; the right stick moves the pointer.
+//! - Console (our window): buttons go to the UI. No pointer: it is driven like a console.
 //! - Game (a full-screen game, or the game we launched): the pad belongs to the
 //!   game. Only Guide (or View + Menu) is used, to open the quick menu.
 //! - Desktop (everything else, including Netflix, browsers and windowed apps):
-//!   both sticks move the pointer, A clicks (hold to drag), B right-clicks,
+//!   the right stick moves the pointer (hold LT for precision), the left stick scrolls
+//!   (or moves the pointer too, if chosen), A clicks (hold to drag), B right-clicks,
 //!   D-pad up/down scrolls, Y opens the keyboard, View returns to the console.
 //!   While the on-screen keyboard is open, the buttons drive the keyboard.
 
@@ -39,7 +40,7 @@ pub struct Shared {
     pub game_hwnd: AtomicIsize,
     /// Pointer speed in percent (25–300).
     pub cursor_speed: AtomicU32,
-    /// Whether the left stick also moves the pointer on the desktop.
+    /// Left stick on the desktop: true = moves the pointer, false = scrolls.
     pub left_stick_mouse: AtomicBool,
 }
 
@@ -53,7 +54,7 @@ impl Default for Shared {
             prev_fg: AtomicIsize::new(0),
             game_hwnd: AtomicIsize::new(0),
             cursor_speed: AtomicU32::new(100),
-            left_stick_mouse: AtomicBool::new(true),
+            left_stick_mouse: AtomicBool::new(false),
         }
     }
 }
@@ -218,6 +219,7 @@ fn run<F: Fn(PadEvent)>(shared: Arc<Shared>, cb: F) {
     let mut repeat_at: [Option<Instant>; 4] = [None; 4];
     let mut chord_used = false;
     let mut acc = (0.0f32, 0.0f32);
+    let mut scroll_acc = (0.0f32, 0.0f32);
     let mut last = Instant::now();
     let mut left_down = false;
     let mut mode = MODE_CONSOLE;
@@ -282,23 +284,28 @@ fn run<F: Fn(PadEvent)>(shared: Arc<Shared>, cb: F) {
         }
         let ours = shared.our_hwnd.load(Ordering::SeqCst);
         let osk = mode == MODE_DESKTOP && shared.osk_open.load(Ordering::SeqCst);
-        let left_mouse = mode == MODE_DESKTOP && !osk && shared.left_stick_mouse.load(Ordering::SeqCst);
+        let desk = mode == MODE_DESKTOP && !osk;
+        let left_mouse = desk && shared.left_stick_mouse.load(Ordering::SeqCst);
+        let left_scroll = desk && !left_mouse;
 
         let (lx, ly) = (axis(st.Gamepad.sThumbLX), axis(st.Gamepad.sThumbLY));
         let (rx, ry) = (axis(st.Gamepad.sThumbRX), axis(st.Gamepad.sThumbRY));
         let mut cur = bits_from(&st);
 
-        // The left stick acts like the D-pad unless it is moving the pointer.
-        if !left_mouse {
+        // The left stick acts like the D-pad unless it is moving the pointer or scrolling.
+        if !desk {
             if lx < -0.55 { cur |= B_LEFT; }
             if lx > 0.55 { cur |= B_RIGHT; }
             if ly > 0.55 { cur |= B_UP; }
             if ly < -0.55 { cur |= B_DOWN; }
         }
 
-        // Pointer from the sticks (never inside a game).
-        if mode != MODE_GAME {
-            let scale = shared.cursor_speed.load(Ordering::SeqCst).clamp(25, 300) as f32 / 100.0;
+        // Pointer from the sticks: only on the desktop, never in the console or a game.
+        if mode == MODE_DESKTOP {
+            let mut scale = shared.cursor_speed.load(Ordering::SeqCst).clamp(25, 300) as f32 / 100.0;
+            if st.Gamepad.bLeftTrigger > 60 {
+                scale *= 0.3; // hold LT for fine pointing
+            }
             let (mut vx, mut vy) = stick_speed(rx, ry, scale);
             if left_mouse {
                 let (ax, ay) = stick_speed(lx, ly, scale);
@@ -311,8 +318,22 @@ fn run<F: Fn(PadEvent)>(shared: Arc<Shared>, cb: F) {
             acc.0 -= mx as f32;
             acc.1 -= my as f32;
             keys::mouse_move(mx, my);
+            if left_scroll {
+                // Smooth scrolling: speed grows with how far the stick is pushed.
+                let curve = |v: f32| if v.abs() < 0.2 { 0.0 } else { v.signum() * ((v.abs() - 0.2) / 0.8).powi(2) };
+                scroll_acc.0 += curve(lx) * 2400.0 * dt;
+                scroll_acc.1 += curve(ly) * 2400.0 * dt;
+                let (sx, sy) = ((scroll_acc.0 / 30.0).trunc() as i32 * 30, (scroll_acc.1 / 30.0).trunc() as i32 * 30);
+                scroll_acc.0 -= sx as f32;
+                scroll_acc.1 -= sy as f32;
+                if sy != 0 { keys::mouse_wheel(sy); }
+                if sx != 0 { keys::mouse_hwheel(sx); }
+            } else {
+                scroll_acc = (0.0, 0.0);
+            }
         } else {
             acc = (0.0, 0.0);
+            scroll_acc = (0.0, 0.0);
         }
 
         let pressed = cur & !prev;

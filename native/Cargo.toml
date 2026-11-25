@@ -20,7 +20,12 @@ windows-sys = { version = "0.61", features = [
   "Win32_System_Performance",
   "Win32_Graphics_Gdi",
   "Win32_Devices_Display",
+  "Win32_Devices_Bluetooth",
+  "Win32_NetworkManagement_WiFi",
+  "Win32_NetworkManagement_Ndis",
+  "Win32_System_Shutdown",
 ] }
+ureq = { version = "2", features = ["json"] }
 
 # WinRT/COM parts (media session, volume, UI Automation). Windows only.
 [target.'cfg(windows)'.dependencies]
@@ -34,5 +39,6 @@ windows = { version = "0.62", features = [
   "Win32_System_Com_StructuredStorage",
   "Win32_System_Variant",
   "Win32_UI_Accessibility",
+  "Devices_Radios",
 ] }
 windows-future = "0.3"

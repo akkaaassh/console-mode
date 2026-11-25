@@ -2,7 +2,7 @@
 
 use crate::util::from_wide;
 use std::mem::{size_of, zeroed};
-use windows_sys::Win32::Foundation::{CloseHandle, HWND, RECT};
+use windows_sys::Win32::Foundation::{CloseHandle, HWND, POINT, RECT};
 use windows_sys::Win32::Graphics::Gdi::{GetMonitorInfoW, MonitorFromWindow, MONITORINFO, MONITOR_DEFAULTTONEAREST};
 use windows_sys::Win32::System::Threading::{
     OpenProcess, QueryFullProcessImageNameW, PROCESS_QUERY_LIMITED_INFORMATION,
@@ -162,5 +162,40 @@ pub fn is_shell(h: isize) -> bool {
         let n = GetClassNameW(hwnd(h), cls.as_mut_ptr(), cls.len() as i32);
         let c = from_wide(&cls[..n.max(0) as usize]);
         matches!(c.as_str(), "Progman" | "WorkerW" | "Shell_TrayWnd" | "Shell_SecondaryTrayWnd")
+    }
+}
+
+/// Mouse pointer position in screen pixels.
+pub fn cursor_pos() -> (i32, i32) {
+    let mut p = POINT { x: 0, y: 0 };
+    unsafe {
+        GetCursorPos(&mut p);
+    }
+    (p.x, p.y)
+}
+
+/// Home-screen mode: hide from Alt+Tab and the taskbar, like a desktop rather than an app window.
+pub fn set_home_screen(h: isize, on: bool) {
+    if !exists(h) {
+        return;
+    }
+    unsafe {
+        let ex = GetWindowLongPtrW(hwnd(h), GWL_EXSTYLE);
+        let tool = WS_EX_TOOLWINDOW as isize;
+        let app = WS_EX_APPWINDOW as isize;
+        let new = if on { (ex | tool) & !app } else { (ex & !tool) | app };
+        if new != ex {
+            SetWindowLongPtrW(hwnd(h), GWL_EXSTYLE, new);
+            SetWindowPos(hwnd(h), 0 as HWND, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+        }
+    }
+}
+
+/// Puts a window behind every other window without minimising it.
+pub fn send_to_back(h: isize) {
+    if exists(h) {
+        unsafe {
+            SetWindowPos(hwnd(h), HWND_BOTTOM, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+        }
     }
 }

@@ -111,3 +111,18 @@ fn ddc_get() -> Option<u32> {
         Some((cur.saturating_sub(lo)) * 100 / (hi - lo))
     })
 }
+
+/// Sleep, restart, shut down, sign out or lock the PC.
+pub fn action(what: &str) -> bool {
+    match what {
+        "sleep" => powershell(
+            "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Application]::SetSuspendState('Suspend', $false, $false) | Out-Null; 'ok'",
+        )
+        .is_some(),
+        "restart" => run_hidden("shutdown.exe", &["/r", "/t", "0"]),
+        "shutdown" => run_hidden("shutdown.exe", &["/s", "/t", "0"]),
+        "signout" => run_hidden("shutdown.exe", &["/l"]),
+        "lock" => unsafe { windows_sys::Win32::System::Shutdown::LockWorkStation() != 0 },
+        _ => false,
+    }
+}

@@ -353,6 +353,86 @@ fn open_keyboard(app: AppHandle) {
     show_osk(&app);
 }
 
+// ---------- power, connectivity, artwork, home screen ----------
+
+#[tauri::command]
+async fn power_action(what: String) -> bool {
+    native::power::action(&what)
+}
+
+#[tauri::command]
+async fn wifi_list(scan: bool) -> Vec<native::wifi::Network> {
+    if scan && native::wifi::scan() {
+        std::thread::sleep(Duration::from_millis(3500));
+    }
+    native::wifi::networks()
+}
+
+#[tauri::command]
+async fn wifi_connect(ssid: String, password: Option<String>) -> Result<(), String> {
+    native::wifi::connect(&ssid, password.as_deref().filter(|p| !p.is_empty()))
+}
+
+#[tauri::command]
+async fn wifi_disconnect() -> bool {
+    native::wifi::disconnect()
+}
+
+#[tauri::command]
+async fn radio_get(kind: String) -> Option<bool> {
+    native::winrt::radio(&kind)
+}
+
+#[tauri::command]
+async fn radio_set(kind: String, on: bool) -> bool {
+    native::winrt::set_radio(&kind, on)
+}
+
+#[tauri::command]
+async fn bt_list(scan: bool) -> Vec<native::bluetooth::Device> {
+    native::bluetooth::devices(scan)
+}
+
+#[tauri::command]
+async fn bt_pair(address: String) -> Result<(), String> {
+    native::bluetooth::pair(&address)
+}
+
+#[tauri::command]
+async fn bt_connect(address: String) -> bool {
+    native::bluetooth::connect(&address)
+}
+
+#[tauri::command]
+async fn bt_disconnect(address: String) -> bool {
+    native::bluetooth::disconnect(&address)
+}
+
+#[tauri::command]
+async fn bt_forget(address: String) -> bool {
+    native::bluetooth::forget(&address)
+}
+
+#[tauri::command]
+async fn art_steam(appid: String) -> native::art::Art {
+    native::art::steam(&appid)
+}
+
+#[tauri::command]
+async fn art_sgdb(key: String, name: String, appid: Option<String>) -> Result<native::art::Art, String> {
+    native::art::steamgriddb(&key, &name, appid.as_deref())
+}
+
+/// Home-screen mode: the console behaves like the desktop itself (no taskbar button,
+/// not in Alt+Tab, sits behind apps you open) instead of being one more window.
+#[tauri::command]
+fn set_home_screen(app: AppHandle, on: bool) {
+    if let Some(w) = app.get_webview_window("main") {
+        let _ = w.set_skip_taskbar(on);
+    }
+    native::window::set_home_screen(shared(&app).our_hwnd.load(Ordering::SeqCst), on);
+}
+
 #[tauri::command]
 fn exit_app(app: AppHandle) {
     app.exit(0);
@@ -380,12 +460,13 @@ fn handle_pad(app: &AppHandle, ev: PadEvent) {
         }
         PadEvent::Clicked => {
             let app = app.clone();
+            let (x, y) = native::window::cursor_pos();
             std::thread::spawn(move || {
                 std::thread::sleep(Duration::from_millis(250));
                 let s = shared(&app);
                 if !s.osk_open.load(Ordering::SeqCst)
                     && s.mode.load(Ordering::SeqCst) == MODE_DESKTOP
-                    && native::winrt::focused_is_text()
+                    && native::winrt::focused_is_text(x, y)
                 {
                     show_osk(&app);
                 }
@@ -478,6 +559,20 @@ fn main() {
             open_keyboard,
             osk_key,
             osk_hide,
+            power_action,
+            wifi_list,
+            wifi_connect,
+            wifi_disconnect,
+            radio_get,
+            radio_set,
+            bt_list,
+            bt_pair,
+            bt_connect,
+            bt_disconnect,
+            bt_forget,
+            art_steam,
+            art_sgdb,
+            set_home_screen,
             exit_app
         ])
         .run(tauri::generate_context!())

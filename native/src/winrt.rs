@@ -164,7 +164,16 @@ mod imp {
         }
     }
 
-    pub fn focused_is_text() -> bool {
+    /// Apps whose search boxes take focus on their own (Start, Search, the taskbar):
+    /// clicking them must not pop the keyboard up.
+    const NO_KEYBOARD: [&str; 7] = [
+        "searchhost.exe", "searchapp.exe", "startmenuexperiencehost.exe", "shellexperiencehost.exe",
+        "textinputhost.exe", "searchui.exe", "console-mode.exe",
+    ];
+
+    /// True when the control that has focus is an editable text field and the
+    /// pointer (where the controller clicked) is on top of it.
+    pub fn focused_is_text(x: i32, y: i32) -> bool {
         com();
         unsafe {
             let Ok(uia) = CoCreateInstance::<_, IUIAutomation>(&CUIAutomation, None, CLSCTX_INPROC_SERVER) else {
@@ -172,6 +181,25 @@ mod imp {
             };
             let Ok(el) = uia.GetFocusedElement() else { return false };
             let Ok(ct) = el.CurrentControlType() else { return false };
+            if ct != UIA_EditControlTypeId && ct != UIA_ComboBoxControlTypeId {
+                return false;
+            }
+            if let Ok(pid) = el.CurrentProcessId() {
+                let proc = crate::window::process_name_of(pid as u32);
+                if NO_KEYBOARD.contains(&proc.as_str()) {
+                    return false;
+                }
+            }
+            // The click has to land on the field itself, not somewhere that moved focus to it.
+            match el.CurrentBoundingRectangle() {
+                Ok(r) if x >= r.left && x <= r.right && y >= r.top && y <= r.bottom => {}
+                _ => return false,
+            }
+            if let Ok(p) = el.GetCurrentPatternAs::<IUIAutomationValuePattern>(UIA_ValuePatternId) {
+                if p.CurrentIsReadOnly().map(|b| b.as_bool()).unwrap_or(false) {
+                    return false;
+                }
+            }
             if ct == UIA_EditControlTypeId {
                 return true;
             }
@@ -185,6 +213,31 @@ mod imp {
         }
     }
 }
+
+#[cfg(windows)]
+mod radios {
+    use windows::Devices::Radios::{Radio, RadioKind, RadioState};
+    fn find(kind: &str) -> Option<Radio> {
+        let want = if kind == "bluetooth" { RadioKind::Bluetooth } else { RadioKind::WiFi };
+        let _ = Radio::RequestAccessAsync().ok()?.join();
+        let list = Radio::GetRadiosAsync().ok()?.join().ok()?;
+        let n = list.Size().ok()?;
+        (0..n).filter_map(|i| list.GetAt(i).ok()).find(|r| r.Kind().map(|k| k == want).unwrap_or(false))
+    }
+    /// Some(on/off) for "wifi" or "bluetooth"; None when the PC has no such radio.
+    pub fn radio(kind: &str) -> Option<bool> {
+        find(kind).and_then(|r| r.State().ok()).map(|s| s == RadioState::On)
+    }
+    pub fn set_radio(kind: &str, on: bool) -> bool {
+        let Some(r) = find(kind) else { return false };
+        r.SetStateAsync(if on { RadioState::On } else { RadioState::Off })
+            .and_then(|op| op.join())
+            .map(|st| st == windows::Devices::Radios::RadioAccessStatus::Allowed)
+            .unwrap_or(false)
+    }
+}
+#[cfg(windows)]
+pub use radios::{radio, set_radio};
 
 #[cfg(not(windows))]
 mod imp {
@@ -201,12 +254,20 @@ mod imp {
     pub fn set_volume(_percent: u32) -> bool {
         false
     }
-    pub fn focused_is_text() -> bool {
+    pub fn focused_is_text(_x: i32, _y: i32) -> bool {
+        false
+    }
+    pub fn radio(_kind: &str) -> Option<bool> {
+        None
+    }
+    pub fn set_radio(_kind: &str, _on: bool) -> bool {
         false
     }
 }
 
 pub use imp::{control, focused_is_text, get_volume, now_playing, set_volume};
+#[cfg(not(windows))]
+pub use imp::{radio, set_radio};
 
 /// Standard base64 (for data: URLs).
 pub fn base64(data: &[u8]) -> String {

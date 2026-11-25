@@ -16,3 +16,6 @@ pub mod stats;
 pub mod util;
 pub mod window;
 pub mod winrt;
+pub mod wifi;
+pub mod bluetooth;
+pub mod art;
