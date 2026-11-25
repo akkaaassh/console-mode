@@ -28,8 +28,8 @@ button{font:inherit;color:inherit;cursor:pointer;border:none;background:none;pad
 .ic{width:42px;height:42px;border-radius:21px;display:inline-flex;align-items:center;justify-content:center;background:rgba(255,255,255,.08)}
 .foc{outline:3px solid #fff;outline-offset:3px}
 .hov{box-shadow:0 0 0 3px #5B9BFF!important}
-.hint{display:flex;gap:18px;font-size:13px;color:#a9b4cc;flex-wrap:wrap;align-items:center}
-.hint b{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 6px;border-radius:11px;border:1.5px solid #a9b4cc;color:#eef2fb;font-size:11px;margin-right:6px}
+.hint{display:flex;gap:14px;font-size:12px;color:#a9b4cc;flex-wrap:wrap;align-items:center}
+.hint b{display:inline-flex;align-items:center;justify-content:center;min-width:19px;height:19px;padding:0 5px;border-radius:10px;border:1.5px solid #a9b4cc;color:#eef2fb;font-size:11px;margin-right:6px}
 .muted{color:#a9b4cc}
 /* login */
 .login{background:radial-gradient(70% 90% at 25% 30%,#3a5a8a 0%,transparent 60%),radial-gradient(60% 80% at 85% 80%,#2a3f5f 0%,transparent 60%),#0f1a2c}
@@ -95,10 +95,12 @@ button{font:inherit;color:inherit;cursor:pointer;border:none;background:none;pad
 .mrow{height:72px;border-radius:14px;padding:0 18px;display:flex;align-items:center;justify-content:space-between;background:rgba(255,255,255,.06);border:2px solid transparent}
 .mrow.on{background:rgba(91,155,255,.22);border-color:#5B9BFF}
 .mrow b{font:700 26px 'Space Grotesk',sans-serif}.mrow span{font-size:14px;font-weight:600;padding:6px 12px;border-radius:14px;background:rgba(255,255,255,.12)}
+.ico{flex:none;vertical-align:-3px}
+.btn .ico,.crow .ico{opacity:.9}
 .pwr{width:96px;display:flex;flex-direction:column;align-items:center;gap:10px;color:#eef2fb}
 .pwr .pc{width:72px;height:72px;border-radius:36px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.08);transition:background .12s,color .12s}
 .pwr .pl{font-size:13px;font-weight:600;text-align:center;line-height:1.25}
-.pwr.sf{outline:none}.pwr.sf .pc{background:#fff;color:#070b16;box-shadow:0 0 0 3px rgba(255,255,255,.25)}
+.pwr.sf{outline:none!important}.pwr.sf .pc{background:#fff;color:#070b16;box-shadow:0 0 0 3px rgba(255,255,255,.25)}
 .pwr:hover .pc{background:rgba(255,255,255,.18)}
 #crop{position:absolute;inset:0;z-index:29;display:none}
 .seg{display:flex;flex-wrap:wrap;gap:6px;padding:4px;border-radius:22px;background:rgba(255,255,255,.06);width:max-content;max-width:100%}
@@ -273,7 +275,7 @@ const SECS=[['Home & appearance','appearance','Choose which games and apps show 
 const SORT=[['recent','Recently played'],['name','Name A–Z'],['installed','Recently installed']];
 function groups(){
  const s=SECS[S.set.sec][1];
- if(s==='appearance')return[{t:'seg',k:'sortGames',label:'Games order · Home row and Library',opts:SORT},{t:'seg',k:'sortApps',label:'Apps order · Apps tab',opts:SORT},{t:'tog',k:'particles',label:'Moving particles in the background'},{t:'tog',k:'showHidden',label:'Show hidden games and apps'},{t:'tog',k:'homeScreen',label:'Home screen mode: no taskbar button, stays behind your apps'},{t:'btn',opts:[['unhide','Unhide everything']]}];
+ if(s==='appearance')return[{t:'seg',k:'sortGames',label:'Games order · Home row and Library',opts:SORT},{t:'seg',k:'sortApps',label:'Apps order · Apps tab',opts:SORT},{t:'tog',k:'particles',label:'Moving particles in the background'},{t:'tog',k:'homeScreen',label:'Home screen mode: no taskbar button, stays behind your apps'},{t:'btn',opts:[['unhide','Unhide everything']]}];
  if(s==='controller')return[{t:'slider',k:'cursor',label:'Pointer speed',min:25,max:300,step:25,unit:'%'},{t:'seg',k:'leftStick',label:'Left stick on the desktop',opts:[['scroll','Scrolls'],['pointer','Moves the pointer']]}];
  if(s==='artwork')return[{t:'field',k:'sgdbKey',label:'SteamGridDB API key (optional)'},{t:'tog',k:'steamArt',label:'Use official Steam store artwork for games'},{t:'btn',opts:[['artall','Refresh artwork for every game'],['artclear','Clear downloaded artwork']]}];
  if(s==='music')return[{t:'field',k:'spClient',label:'Spotify Client ID'},{t:'btn',opts:[['spconnect',spConnected()?'Reconnect Spotify':'Connect Spotify'],...(spConnected()?[['spdisconnect','Disconnect']]:[])]}];
@@ -296,14 +298,14 @@ function spark(a,max,col){const pts=a.map((v,i)=>`${(i/(a.length-1)*280).toFixed
 function vSettings(){
  const st=S.set,sec=SECS[st.sec],gs=groups();
  const f=(gi,oi)=>!st.side&&st.g===gi&&st.o===oi?'sf':'';
- const side=SECS.map((s,i)=>`<button class="${i===st.sec?'on':''} ${st.side&&i===st.sec?'sf':''}" data-act="sec:${i}">${s[0]}</button>`).join('');
+ const side=SECS.map((s,i)=>`<button class="${i===st.sec?'on':''} ${st.side&&i===st.sec?'sf':''}" data-act="sec:${i}" style="display:flex;gap:12px;align-items:center">${ic(SECIC[s[1]],19)}${s[0]}</button>`).join('');
  const body=gs.map((g,gi)=>{
-  if(g.t==='seg')return `<div><div class="gl">${g.label}</div><div class="seg">${g.opts.map((o,oi)=>`<button class="sb ${PREF[g.k]===o[0]?'on':''} ${f(gi,oi)}" data-act="sg:${gi}:${oi}">${o[1]}</button>`).join('')}</div></div>`;
-  if(g.t==='slider'){const v=PREF[g.k]??g.min;return `<div><div class="gl">${g.label}</div><div class="${f(gi,0)}" style="display:flex;gap:12px;align-items:center;padding:6px;border-radius:24px;width:max-content"><button class="ic" aria-label="Less" data-act="sl:${gi}:-1">−</button><div class="bar" style="width:260px;height:8px"><i style="width:${(v-g.min)/(g.max-g.min)*100}%;height:8px"></i></div><button class="ic" aria-label="More" data-act="sl:${gi}:1">+</button><span style="width:52px">${v}${g.unit}</span></div></div>`}
-  if(g.t==='field')return `<div><label class="gl" for="fld-${g.k}" style="display:block">${g.label}</label><input id="fld-${g.k}" class="fld ${f(gi,0)}" data-save="${g.k}" data-act="fld:${gi}" autocomplete="off" spellcheck="false" value="${esc(PREF[g.k]||'')}" placeholder="Paste or type it here"></div>`;
-  if(g.t==='tog')return `<button class="${f(gi,0)}" data-act="sg:${gi}:0" style="display:flex;gap:16px;align-items:center;justify-content:space-between;width:560px;padding:16px 18px;border-radius:14px;background:rgba(255,255,255,.06);text-align:left"><span style="font-size:15px">${g.label}</span><span class="sw ${PREF[g.k]?'on':''}"><i></i></span></button>`;
+  if(g.t==='seg')return `<div><div class="gl" style="display:flex;gap:8px;align-items:center">${ic(KIC[g.k],16)}${g.label}</div><div class="seg">${g.opts.map((o,oi)=>`<button class="sb ${PREF[g.k]===o[0]?'on':''} ${f(gi,oi)}" data-act="sg:${gi}:${oi}">${o[1]}</button>`).join('')}</div></div>`;
+  if(g.t==='slider'){const v=PREF[g.k]??g.min;return `<div><div class="gl" style="display:flex;gap:8px;align-items:center">${ic(KIC[g.k],16)}${g.label}</div><div class="${f(gi,0)}" style="display:flex;gap:12px;align-items:center;padding:6px;border-radius:24px;width:max-content"><button class="ic" aria-label="Less" data-act="sl:${gi}:-1">−</button><div class="bar" style="width:260px;height:8px"><i style="width:${(v-g.min)/(g.max-g.min)*100}%;height:8px"></i></div><button class="ic" aria-label="More" data-act="sl:${gi}:1">+</button><span style="width:52px">${v}${g.unit}</span></div></div>`}
+  if(g.t==='field')return `<div><label class="gl" for="fld-${g.k}" style="display:flex;gap:8px;align-items:center">${ic(KIC[g.k],16)}${g.label}</label><input id="fld-${g.k}" class="fld ${f(gi,0)}" data-save="${g.k}" data-act="fld:${gi}" autocomplete="off" spellcheck="false" value="${esc(PREF[g.k]||'')}" placeholder="Paste or type it here"></div>`;
+  if(g.t==='tog')return `<button class="${f(gi,0)}" data-act="sg:${gi}:0" style="display:flex;gap:16px;align-items:center;justify-content:space-between;width:560px;padding:16px 18px;border-radius:14px;background:rgba(255,255,255,.06);text-align:left"><span style="font-size:15px;display:inline-flex;gap:12px;align-items:center">${ic(KIC[g.k],19)}${g.label}</span><span class="sw ${PREF[g.k]?'on':''}"><i></i></span></button>`;
   if(g.t==='map')return `<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px">${g.keys.map((k,oi)=>`<button class="mrow ${f(gi,oi)}" data-act="sg:${gi}:${oi}"><b>${pinName(k)}</b><span>${st.listen===k?'Press a button…':MAP[k]}</span></button>`).join('')}</div>`;
-  return `<div style="display:flex;gap:12px">${g.opts.map((o,oi)=>`<button class="btn ${o[0]==='exit'?'pri':''} ${f(gi,oi)}" data-act="sg:${gi}:${oi}">${o[1]}</button>`).join('')}</div>`;
+  return `<div style="display:flex;gap:12px">${g.opts.map((o,oi)=>`<button class="btn ${o[0]==='exit'?'pri':''} ${f(gi,oi)}" data-act="sg:${gi}:${oi}" style="display:inline-flex;gap:8px;align-items:center">${ic(BIC[o[0]],17)}${o[1]}</button>`).join('')}</div>`;
  }).join('');
  let extra='';
  if(sec[1]==='music')extra=`<div style="font-size:14px;line-height:1.6;color:#c9d2e6;max-width:640px"><b style="color:#fff">${spConnected()?'● Connected':'○ Not connected'}</b><br>One-time setup: open <b>developer.spotify.com/dashboard</b>, create an app, add the Redirect URI <b>${SP_REDIRECT}</b>, tick <b>Web API</b>, save, then copy the app’s Client ID into the box above and press Connect.</div>`;
@@ -447,9 +449,9 @@ function pinPress(k){
  if(S.pin.length===4)setTimeout(signIn,300);
 }
 function signIn(){if(S.screen!=='login')return;S.pin='';go('welcome');setTimeout(()=>go('home'),1100)}
-const ADDWEB={id:'__addweb',t:'Add web app',s:'Any website as a full-screen app',add:true,app:true,tags:[],c1:'#141b2e',c2:'#2a3550',last:''};
-const homeList=()=>S.htab==='apps'?sortBy(APPS.concat(NATIVE?[]:webAppItems()).filter(visible),PREF.sortApps).concat([ADDWEB]):sortBy(GAMES.filter(g=>visible(g)&&!g.tags.includes('ni')),PREF.sortGames).slice(0,10);
-function launch(g){if(g&&g.add){addWebApp();return}if(NATIVE)return nLaunch(g);if(!g)return;if(g.kind==='webapp'){toast('Opens '+g.target+' full screen in the Windows app');return}if(g.tags.includes('ni')){toast('Not installed: would open Steam to install '+g.t);return}
+const ADDWEB={id:'__addweb',t:'Add an app',s:'A website, or any program on this PC',add:true,app:true,tags:[],c1:'#141b2e',c2:'#2a3550',last:''};
+const homeList=()=>S.htab==='apps'?sortBy(APPS.concat(NATIVE?[]:webAppItems().concat(customAppItems())).filter(visible),PREF.sortApps).concat([ADDWEB]):sortBy(GAMES.filter(g=>visible(g)&&!g.tags.includes('ni')),PREF.sortGames).slice(0,10);
+function launch(g){if(g&&g.add){openAddApp();return}if(NATIVE)return nLaunch(g);if(!g)return;if(g.kind==='webapp'){toast('Opens '+g.target+' full screen in the Windows app');return}if(g.tags.includes('ni')){toast('Not installed: would open Steam to install '+g.t);return}
  if(S.game&&S.game!==g)toast('Closed '+S.game.t);
  g.lp=-(++LPC);g.last='Just now';if(g.app){if(PREF.sortApps==='recent')S.asel=0}else if(PREF.sortGames==='recent')S.sel=0;if(S.game!==g)S.gameStart=Date.now();S.game=g;S.qm.open=false;go('game')}
 const SCREEN={
@@ -646,6 +648,7 @@ async function loadApps(){
  for(const a of list){const id='app:'+a.app_id,ts=PLAYED[id]||0,[c1,c2]=colors(a.name);
   APPS.push({id,orig:a.name,t:NAMES[id]||a.name,s:a.web?'Installed web app':'Installed app',last:ago(ts),ts,lp:ts?-ts:1e12,inst:'',app:true,web:!!a.web,c1,c2,tags:FAV[id]?['fav']:[],kind:'appid',target:a.app_id})}
  for(const w of webAppItems())APPS.push(w);
+ for(const c of customAppItems())APPS.push(c);
  APPS.forEach(applyArt);setTimeout(loadAppIcons,200);S.asel=0;S.appsScanned=true;render();
 }
 async function addGame(){
@@ -944,7 +947,7 @@ function libBtn(b){
 }
 
 /* ---- sheets: one small menu or prompt over everything ---- */
-function openSheet(o){S.sheet={i:0,...o};render();if(o.input)setTimeout(()=>{const el=$('#sheetFld');if(el){openOsk(el)}},60)}
+function openSheet(o){(o.items||[]).forEach(it=>{if(!it.icon&&!o.grid)it.icon=it.label==='Cancel'?'x':/^(Save|Add|Use it|Connect)$/.test(it.label)?'check':/^Search/.test(it.label)?'search':/^Next$/.test(it.label)?'check':''});S.sheet={i:0,...o};render();if(o.input)setTimeout(()=>{const el=$('#sheetFld');if(el){openOsk(el)}},60)}
 function closeSheet(){S.sheet=null;closeOsk();render()}
 function renderSheet(){
  const o=$('#opt'),sh=S.sheet;if(!sh){o.style.display='none';o.innerHTML='';o._html='';return}
@@ -955,7 +958,7 @@ function renderSheet(){
   <div class="hint" style="font-size:12px"><span><b>←→</b>Choose</span><span><b>A</b>Select</span><span><b>B</b>Close</span></div></div>`:`<div style="width:460px;padding:22px;border-radius:18px;background:#0e1424;border:1px solid rgba(255,255,255,.12);display:flex;flex-direction:column;gap:8px;margin-bottom:${sh.input?'300px':'0'}">
   <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px">${sh.bg?`<div style="width:48px;height:48px;border-radius:10px;flex:none;background:${sh.bg}"></div>`:''}<div style="min-width:0"><div class="h" style="font-size:18px;font-weight:700">${esc(sh.title||'')}</div>${sh.sub?`<div class="muted" style="font-size:13px">${esc(sh.sub)}</div>`:''}</div></div>
   ${sh.input?`<label class="gl" for="sheetFld" style="margin:0">${esc(sh.input.label||'')}</label><input id="sheetFld" class="fld" style="width:100%" ${sh.input.secret?'type="password"':''} autocomplete="off" spellcheck="false" value="${esc(sh.input.value||'')}" placeholder="${esc(sh.input.placeholder||'')}">`:''}
-  ${sh.items.map((it,i)=>`<button class="btn ${i===sh.i?'sf':''}" style="text-align:left;border-radius:12px;height:48px;${it.danger?'color:#ff8a7a':''}" data-act="sheet:${i}">${esc(it.label)}</button>`).join('')}</div>`;
+  ${sh.items.map((it,i)=>`<button class="btn ${i===sh.i?'sf':''}" style="text-align:left;border-radius:12px;height:48px;${it.danger?'color:#ff8a7a':''}" data-act="sheet:${i}"><span style="display:inline-flex;gap:12px;align-items:center">${it.icon?ic(it.icon,19):''}${esc(it.label)}</span></button>`).join('')}</div>`;
  if(o._html===html)return;
  o._html=html;o.innerHTML=html;
  const f=$('#sheetFld');if(f&&sh.input&&sh.input.value!=null)f.value=sh.input.value;
@@ -975,16 +978,13 @@ function curItem(){if(S.screen==='library')return lib()[S.lsel];const l=homeList
 function openOpts(g){
  g=g||curItem();if(!g||g.add)return;const id=gid(g);
  const items=[
-  {label:FAV[id]?'Remove from favourites':'Add to favourites',fn:()=>{if(FAV[id])delete FAV[id];else FAV[id]=1;keep('cm-fav',FAV);g.tags=FAV[id]?['fav']:g.tags.filter(t=>t!=='fav');toast(FAV[id]?'Added to favourites':'Removed from favourites');render()}},
-  {label:'Rename',fn:()=>renameItem(g)},
-  {label:'Change artwork…',fn:()=>openGallery(g)},
-  {label:'Crop & adjust artwork…',fn:()=>{const kinds=[['cover','Cover'],['hero','Background'],['logo','Logo']].filter(k=>g[k[0]]);if(!kinds.length){toast('No artwork to adjust yet');return}openSheet({title:'Crop & adjust',sub:g.t,items:kinds.map(k=>({label:k[1],fn:()=>openCrop(g,k[0],g[k[0]],null)})).concat([{label:'Cancel'}])})}},
-  {label:'Find artwork online automatically',fn:()=>fetchArt(g,true)},
-  ...(g.kind==='webapp'?[{label:'Remove from apps',danger:true,fn:()=>{WEBAPPS=WEBAPPS.filter(w=>w.id!==id);keep('cm-webapps',WEBAPPS);toast('Removed '+g.t);if(NATIVE)loadApps();else render()}}]:[]),
-  {label:HIDDEN[id]?'Unhide':'Hide from Home and Library',fn:()=>{if(HIDDEN[id])delete HIDDEN[id];else HIDDEN[id]=1;keep('cm-hidden',HIDDEN);toast(HIDDEN[id]?'Hidden. Show it again from Settings › Home & appearance.':'Unhidden');S.sel=0;S.asel=0;S.lsel=0;render()}},
-  ...(g.folder?[{label:'Open install folder',fn:()=>invoke('open_folder',{path:g.folder}).then(ok=>{if(ok)invoke('go_desktop');else toast('Couldn’t open the folder')})}]:[]),
-  ...(NAMES[id]?[{label:'Use the original name',fn:()=>{delete NAMES[id];keep('cm-names',NAMES);g.t=g.orig||g.t;toast('Name reset');render()}}]:[]),
-  ...(g.custom?[{label:'Remove from library',danger:true,fn:()=>{CUSTOM=CUSTOM.filter(c=>c.id!==id);keep('cm-custom',CUSTOM);toast('Removed '+g.t);loadGames()}}]:[]),
+  {label:FAV[id]?'Remove from favourites':'Add to favourites',icon:FAV[id]?'starOff':'star',fn:()=>{if(FAV[id])delete FAV[id];else FAV[id]=1;keep('cm-fav',FAV);g.tags=FAV[id]?['fav']:g.tags.filter(t=>t!=='fav');toast(FAV[id]?'Added to favourites':'Removed from favourites');render()}},
+  {label:'Rename',icon:'edit',fn:()=>renameItem(g)},
+  {label:'Change artwork…',icon:'image',fn:()=>openGallery(g)},
+  ...(g.folder?[{label:'Open install folder',icon:'folder',fn:()=>invoke('open_folder',{path:g.folder}).then(ok=>{if(ok)invoke('go_desktop');else toast('Couldn’t open the folder')})}]:[]),
+  ...(g.kind==='webapp'?[{label:'Remove from apps',icon:'trash',danger:true,fn:()=>{WEBAPPS=WEBAPPS.filter(w=>w.id!==id);keep('cm-webapps',WEBAPPS);toast('Removed '+g.t);if(NATIVE)loadApps();else render()}}]:[]),
+  ...(g.customApp?[{label:'Remove from apps',icon:'trash',danger:true,fn:()=>{CUSTOMAPPS=CUSTOMAPPS.filter(c=>c.id!==id);keep('cm-custom-apps',CUSTOMAPPS);toast('Removed '+g.t);if(NATIVE)loadApps();else render()}}]:[]),
+  ...(g.custom?[{label:'Remove from library',icon:'trash',danger:true,fn:()=>{CUSTOM=CUSTOM.filter(c=>c.id!==id);keep('cm-custom',CUSTOM);toast('Removed '+g.t);loadGames()}}]:[]),
   {label:'Cancel'}];
  openSheet({title:g.t,sub:g.s,bg:grad(g),items});
 }
@@ -992,6 +992,7 @@ function renameItem(g){
  const id=gid(g);if(!g.orig)g.orig=g.t;
  openSheet({title:'Rename',sub:g.orig,bg:grad(g),input:{label:'New name',value:g.t,placeholder:g.orig},items:[
   {label:'Save',fn:v=>{if(!v){toast('Name can’t be empty');return}NAMES[id]=v;keep('cm-names',NAMES);g.t=v;toast('Renamed to '+v);render()}},
+  ...(NAMES[id]?[{label:'Use the original name',icon:'reset',fn:()=>{delete NAMES[id];keep('cm-names',NAMES);g.t=g.orig||g.t;toast('Name reset');render()}}]:[]),
   {label:'Cancel'}]});
 }
 const PICON={
@@ -1209,7 +1210,7 @@ function spPanel(m){
  const row=(r,i)=>{const on=foc&&start+i===sp.i;
   if(r.kind==='field')return `<button class="crow ${on?'sf':''}" data-act="sprow:${start+i}" style="min-height:46px"><span style="display:flex;gap:10px;align-items:center;min-width:0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><span style="font-size:14px;${sp.q?'':'color:#a9b4cc'}">${esc(sp.q||'Search songs, albums, playlists')}</span></span><span style="color:#a9b4cc;font-size:12px">A to type</span></button>`;
   const img=r.img?`url('${esc(r.img)}') center/cover`:(r.bg||'rgba(255,255,255,.08)');
-  return `<button class="crow ${on?'sf':''}" data-act="sprow:${start+i}" style="min-height:52px"><span style="display:flex;gap:12px;align-items:center;min-width:0">${r.kind==='info'||r.kind==='action'?'':`<span style="width:40px;height:40px;border-radius:${r.kind==='artist'?20:6}px;flex:none;background:${img}"></span>`}<span style="min-width:0;text-align:left"><b style="display:block;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.t)}</b>${r.a?`<small style="display:block;color:#a9b4cc;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.a)}</small>`:''}</span></span><span style="color:#a9b4cc;font-size:12px;flex:none">${r.len?mmss(r.len):r.kind==='playlist'||r.kind==='album'||r.kind==='liked'?'›':''}</span></button>`};
+  return `<button class="crow ${on?'sf':''}" data-act="sprow:${start+i}" style="min-height:52px"><span style="display:flex;gap:12px;align-items:center;min-width:0">${r.kind==='info'||r.kind==='action'?'':`<span style="width:40px;height:40px;border-radius:${r.kind==='artist'?20:6}px;flex:none;background:${img}"></span>`}${r.kind==='ctx'?`<span style="width:40px;height:40px;border-radius:20px;flex:none;display:flex;align-items:center;justify-content:center;background:#1ed760;color:#05070d">${ic(r.shuffle?'shuffle':'play',18)}</span>`:''}<span style="min-width:0;text-align:left"><b style="display:block;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.t)}</b>${r.a?`<small style="display:block;color:#a9b4cc;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.a)}</small>`:''}</span></span><span style="color:#a9b4cc;font-size:12px;flex:none">${r.len?mmss(r.len):r.kind==='playlist'||r.kind==='album'||r.kind==='liked'?'›':''}</span></button>`};
  return `<aside aria-label="Music panel" style="position:absolute;top:0;right:0;bottom:0;width:400px;padding:22px;background:rgba(12,14,18,.98);border-left:1px solid rgba(255,255,255,.08);display:flex;flex-direction:column;gap:12px">
   <div style="display:flex;gap:14px;align-items:center"><div style="width:84px;height:84px;border-radius:10px;flex:none;background:${artBg(m)}"></div><div style="min-width:0;flex:1"><div class="h" style="font-size:17px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m?esc(m.title):'Nothing playing'}</div><div class="muted" style="font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m?esc([m.artist,m.album].filter(Boolean).join(' · ')):''}</div>
    <div class="bar" style="margin-top:10px"><i id="qmprog" style="width:${m&&m.duration?Math.min(100,m.position/m.duration*100):0}%"></i></div><div style="display:flex;justify-content:space-between;font-size:11px;color:#8d99b5;margin-top:4px"><span id="qmpos">${m?mmss(Math.floor(m.position)):'0:00'}</span><span>${m&&m.duration?mmss(Math.floor(m.duration)):'–'}</span></div></div></div>
@@ -1364,7 +1365,7 @@ async function galLoad(){
  }
  G.busy='';render();
 }
-const galTop=()=>[['src','Source: '+(S.gal.src==='steam'?'Steam':'SteamGridDB')],['match','Change match'],['search','Search another name'],['link','Use an image link'],['local','Image from this PC'],['adjust','Crop & adjust current'],['reset','Reset'],['close','Done']];
+const galTop=()=>[['auto','Find automatically','magic'],['adjust','Crop & adjust','crop'],['src','Source: '+(S.gal.src==='steam'?'Steam':'SteamGridDB'),'swap'],['match','Change match','target'],['search','Search name','search'],['link','Image link','link'],['local','From this PC','upload'],['reset','Reset','reset'],['close','Done','check']];
 function galSet(field,url){
  const G=S.gal,g=G.g,id=gid(g),a={...(ART[id]||{})};a[field]=url;a.done=true;a.manual=true;a.v=2;if(G.match){if(G.src==='steam')a.steamid=G.match.id;else a.sgdb=G.match.id;a.q=G.q}ART[id]=a;keep('cm-art',ART);g[field]=url;
  toast(GKINDS.find(k=>k[2]===field)[1]+' updated');render();
@@ -1377,6 +1378,7 @@ async function galTopAct(k){
  if(k==='search'){openSheet({title:'Search another name',sub:'Try the full title, e.g. “Marvel’s Spider-Man 2”',input:{label:'Name',value:G.q||G.g.orig||G.g.t},items:[{label:'Search',fn:v=>{if(v)galSearch(v)}},{label:'Cancel'}]});return}
  if(k==='link'){const f=GKINDS[G.k];openSheet({title:'Use an image link as the '+f[1].toLowerCase(),sub:'Copy an image’s address from any website and paste it here',input:{label:'Image link',placeholder:'https://…'},items:[{label:'Use it',fn:v=>{if(!/^https?:\/\//i.test(v||'')){toast('That isn’t a web link');return}galPick(f[2],v)}},{label:'Cancel'}]});return}
  if(k==='local'){if(!NATIVE)return;const p=await invoke('pick_image');if(p)galPick(GKINDS[G.k][2],fsrc(p));return}
+ if(k==='auto'){const g=G.g;S.gal=null;render();fetchArt(g,true);return}
  if(k==='adjust'){const f=GKINDS[G.k];if(!G.g[f[2]]){toast('No '+f[1].toLowerCase()+' to adjust yet');return}openCrop(G.g,f[2],G.g[f[2]],null);return}
  if(k==='reset'){const g=G.g;delete ART[gid(g)];delete FIT[gid(g)];keep('cm-fit',FIT);keep('cm-art',ART);S.gal=null;toast('Getting automatic artwork…');if(NATIVE){delete g.cover;delete g.hero;delete g.logo;await getArt(g,true);if(g.app)loadApps();else loadGames()}render()}
 }
@@ -1388,7 +1390,7 @@ function renderGal(){
  const cur=G.g[kind[2]];
  el.innerHTML=`<div style="position:absolute;inset:0;background:#070b16;padding:26px 48px;display:flex;flex-direction:column;gap:14px">
   <div style="display:flex;flex-direction:column;gap:12px"><div><div class="h" style="font-size:26px;font-weight:700">Artwork · ${esc(G.g.t)}</div><div class="muted" style="font-size:13px">${G.match?'Showing '+(G.src==='steam'?'Steam’s official images':'SteamGridDB')+' for “'+esc(G.match.name)+'”':'No match selected'}${G.busy?' · '+esc(G.busy):''}</div></div>
-   <div style="display:flex;gap:8px;flex-wrap:wrap">${galTop().map(([k,l],i)=>`<button class="btn ${G.zone==='top'&&G.ti===i?'sf':''}" data-act="galtop:${k}">${l}</button>`).join('')}</div></div>
+   <div style="display:flex;gap:8px;flex-wrap:wrap">${galTop().map(([k,l,icn],i)=>`<button class="btn ${G.zone==='top'&&G.ti===i?'sf':''}" data-act="galtop:${k}" style="display:inline-flex;gap:8px;align-items:center">${ic(icn,17)}${l}</button>`).join('')}</div></div>
   <div class="tabs">${GKINDS.map((k,i)=>`<button class="tab ${G.k===i?'on':''}" data-act="galk:${i}">${k[1]}</button>`).join('')}<span class="muted" style="font-size:12px;align-self:center;margin-left:12px">Current: ${cur?'set':'none'}</span></div>
   ${G.err?`<p style="margin:0;color:#ff9a8a;font-size:14px">${esc(G.err)}</p>`:''}
   <div style="display:grid;grid-template-columns:repeat(${cols},minmax(0,1fr));gap:14px;flex:1;align-content:start;overflow:hidden">${vis.map((im,j)=>{const i=start+j;return `<button class="gimg ${G.zone==='grid'&&G.i===i?'sf':''} ${im.url===cur?'cur':''}" data-act="galimg:${i}" style="aspect-ratio:${kind[0]==='grids'?'2/3':kind[0]==='heroes'?'96/31':'2/1'};background:${kind[0]==='logos'?'#1a2238':'#141b2e'} url('${esc(im.thumb)}') center/${kind[0]==='logos'?'contain':'cover'} no-repeat"></button>`}).join('')}${!imgs.length&&!G.busy&&G.match?'<p class="muted">No images of this kind.</p>':''}</div>
@@ -1476,6 +1478,58 @@ function renderCrop(){
 }
 function galPick(field,url){const G=S.gal;openCrop(G.g,field,url,()=>galSet(field,url))}
 
+/* ---------- small icons for menus and settings ---------- */
+const IC={
+ star:'<path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2l1.1-6.2L3 9.6l6.2-.9z"/>',
+ starOff:'<path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2l1.1-6.2L3 9.6l6.2-.9z"/><path d="M3 3l18 18"/>',
+ edit:'<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>',
+ image:'<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/>',
+ crop:'<path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M2 6h14a2 2 0 0 1 2 2v14"/>',
+ magic:'<path d="M5 19L17 7"/><path d="M15 5l4 4"/><path d="M8 3v3M6.5 4.5h3M19 14v3M17.5 15.5h3"/>',
+ folder:'<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+ trash:'<path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/>',
+ x:'<path d="M6 6l12 12M18 6L6 18"/>',
+ check:'<path d="M5 12l5 5 9-10"/>',
+ globe:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
+ appAdd:'<rect x="3" y="4" width="18" height="14" rx="2"/><path d="M12 8v6M9 11h6"/><path d="M8 21h8"/>',
+ refresh:'<path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v5h-5"/>',
+ swap:'<path d="M4 8h13l-3-3M20 16H7l3 3"/>',
+ target:'<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/>',
+ search:'<circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/>',
+ link:'<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
+ unlink:'<path d="M15 9l3-3a3 3 0 0 0-4-4l-3 3M9 15l-3 3a3 3 0 0 0 4 4l3-3M4 4l16 16"/>',
+ upload:'<path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 20h16"/>',
+ download:'<path d="M12 4v12M7 11l5 5 5-5"/><path d="M4 20h16"/>',
+ reset:'<path d="M4 12a8 8 0 1 0 2.6-5.9"/><path d="M4 4v5h5"/>',
+ eye:'<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+ home:'<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/>',
+ sort:'<path d="M7 4v16M3 16l4 4 4-4"/><path d="M14 6h7M14 12h5M14 18h3"/>',
+ grid:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+ sparkle:'<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 17v4M17 19h4"/>',
+ pointer:'<path d="M5 3l14 7-6 2-2 6z"/>',
+ stick:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.5"/>',
+ pad:'<path d="M7 8h10a5 5 0 0 1 4.6 7l-.8 1.8a2.5 2.5 0 0 1-4.2.5L15 15H9l-1.6 2.3a2.5 2.5 0 0 1-4.2-.5L2.4 15A5 5 0 0 1 7 8z"/><path d="M7 11v3M5.5 12.5h3"/><circle cx="16.5" cy="11.5" r=".8"/><circle cx="18" cy="13.5" r=".8"/>',
+ key:'<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3"/>',
+ music:'<path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/>',
+ keypad:'<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 7h.01M12 7h.01M15 7h.01M9 11h.01M12 11h.01M15 11h.01M9 15h.01M12 15h.01M15 15h.01"/>',
+ tv:'<rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/>',
+ sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+ bolt:'<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>',
+ hz:'<path d="M3 12h4l3-8 4 16 3-8h4"/>',
+ power:'<path d="M12 3v9"/><path d="M6.3 6.3a8 8 0 1 0 11.4 0"/>',
+ rocket:'<path d="M5 15c-1.5 1.5-2 5-2 5s3.5-.5 5-2"/><path d="M9 15l-3-3c2-6 7-9 13-9 0 6-3 11-9 13z"/><circle cx="14.5" cy="9.5" r="1.5"/>',
+ tray:'<path d="M4 14v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/><path d="M12 4v10"/><path d="M8 10l4 4 4-4"/>',
+ logout:'<path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 8l-4 4 4 4"/><path d="M6 12h10"/>',
+ wifi:'<path d="M2 8.5a15 15 0 0 1 20 0M5 12a10 10 0 0 1 14 0M8.5 15.5a5 5 0 0 1 7 0"/><path d="M12 19h.01"/>',
+ play:'<path d="M7 4v16l13-8z"/>',
+ shuffle:'<path d="M3 7h4l10 10h4M17 21l4-4-4-4M3 17h4l3-3M14 10l3-3h4M17 3l4 4-4 4"/>',
+ bt:'<path d="M7 7l10 10-5 5V2l5 5L7 17"/>',
+ info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>'};
+const ic=(k,sz=18)=>IC[k]?`<svg class="ico" width="${sz}" height="${sz}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[k]}</svg>`:'';
+const SECIC={appearance:'home',controller:'pad',artwork:'image',music:'music',signin:'keypad',power:'tv',startup:'rocket',updates:'download'};
+const KIC={sortGames:'sort',sortApps:'grid',particles:'sparkle',showHidden:'eye',homeScreen:'home',cursor:'pointer',leftStick:'stick',sgdbKey:'key',steamArt:'image',spClient:'key',bright:'sun',power:'bolt',res:'tv',hz:'hz',startup:'power',pinpad:'keypad'};
+const BIC={unhide:'eye',artall:'refresh',artclear:'trash',spconnect:'link',spdisconnect:'unlink',reset:'reset',signout:'logout',tray:'tray',exit:'x',updcheck:'refresh',updinstall:'download'};
+
 /* ---------- updates ---------- */
 async function updCheck(){
  if(!NATIVE){S.upd={err:'Updates work in the Windows app'};render();return}
@@ -1498,12 +1552,27 @@ function addWebApp(){
     {label:'Add',fn:name=>{const u=url.includes('://')?url:'https://'+url;const id='web:'+u.toLowerCase();if(WEBAPPS.some(w=>w.id===id)){toast('Already added');return}WEBAPPS.push({id,name:name||h,url:u});keep('cm-webapps',WEBAPPS);toast('Added '+(name||h));S.htab='apps';if(NATIVE)loadApps();else render()}},{label:'Cancel'}]})}},
   {label:'Cancel'}]});
 }
+let CUSTOMAPPS=store('cm-custom-apps',[]);
+function customAppItems(){return CUSTOMAPPS.map(c=>{const [c1,c2]=colors(c.name);return{id:c.id,orig:c.name,t:NAMES[c.id]||c.name,s:'Added app',last:ago(PLAYED[c.id]||0),ts:PLAYED[c.id]||0,lp:PLAYED[c.id]?-PLAYED[c.id]:1e12,inst:'',app:true,customApp:true,c1,c2,tags:FAV[c.id]?['fav']:[],kind:'exe',target:c.path,workdir:null,folder:c.path.replace(/\\[^\\]*$/,'')}})}
+function openAddApp(){openSheet({title:'Add an app',sub:'Shows up here in Apps',items:[
+ {label:'Add a web app (any website)',icon:'globe',fn:addWebApp},
+ {label:'Add an app from this PC',icon:'appAdd',fn:addPcApp},
+ {label:'Scan for apps again',icon:'refresh',fn:()=>{if(!NATIVE){toast('Scanning works in the Windows app');return}toast('Scanning for apps…');loadApps()}},
+ {label:'Cancel'}]})}
+async function addPcApp(){
+ if(!NATIVE){toast('Adding apps works in the Windows app');return}
+ const p=await invoke('pick_exe');if(!p)return;
+ const name=p.replace(/^.*[\\/]/,'').replace(/\.(exe|lnk|url|bat)$/i,'');
+ const id='pcapp:'+p.toLowerCase();
+ if(CUSTOMAPPS.some(c=>c.id===id)){toast(name+' is already in Apps');return}
+ CUSTOMAPPS.push({id,name,path:p});keep('cm-custom-apps',CUSTOMAPPS);toast('Added '+name);S.htab='apps';loadApps();
+}
 function webAppItems(){return WEBAPPS.map(w=>{const [c1,c2]=colors(w.name);return{id:w.id,orig:w.name,t:NAMES[w.id]||w.name,s:'Web app · '+hostOf(w.url),last:ago(PLAYED[w.id]||0),ts:PLAYED[w.id]||0,lp:PLAYED[w.id]?-PLAYED[w.id]:1e12,inst:'',app:true,web:true,c1,c2,tags:FAV[w.id]?['fav']:[],kind:'webapp',target:w.url,icon:`https://www.google.com/s2/favicons?domain=${encodeURIComponent(hostOf(w.url))}&sz=256`}})}
 const ICONS=store('cm-icons',{});
 async function loadAppIcons(){
  if(!NATIVE)return;
- for(const a of APPS){if(a.kind!=='appid'||a.icon)continue;if(ICONS[a.id]){a.icon=ICONS[a.id];continue}
-  const i=await invoke('app_icon',{appId:a.target});if(i){a.icon=i;ICONS[a.id]=i;keep('cm-icons',ICONS)}}
+ for(const a of APPS){if((a.kind!=='appid'&&!a.customApp)||a.icon)continue;if(ICONS[a.id]){a.icon=ICONS[a.id];continue}
+  const i=a.customApp?await invoke('file_icon',{path:a.target}):await invoke('app_icon',{appId:a.target});if(i){a.icon=i;ICONS[a.id]=i;keep('cm-icons',ICONS)}}
  if(S.screen==='home')render();
 }
 

@@ -663,6 +663,11 @@ async fn app_icon(app_id: String) -> Option<String> {
     native::winrt::shell_icon(&format!("shell:AppsFolder\\{app_id}"), 128)
 }
 
+#[tauri::command]
+async fn file_icon(path: String) -> Option<String> {
+    native::winrt::shell_icon(&path, 128)
+}
+
 /// Icon of the app that is playing media (by its Windows app id).
 #[tauri::command]
 async fn source_icon(app_id: String) -> Option<String> {
@@ -916,6 +921,7 @@ fn main() {
             art_steam_search,
             art_epic,
             set_typing,
+            file_icon,
             art_sgdb,
             set_home_screen,
             switcher_pick,

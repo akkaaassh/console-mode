@@ -1,6 +1,6 @@
 [package]
 name = "console-mode"
-version = "0.4.4"
+version = "0.4.5"
 description = "A console-style launcher for Windows, driven by a controller"
 edition = "2021"
 
