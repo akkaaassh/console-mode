@@ -29,6 +29,8 @@ pub struct Game {
     pub logo: Option<String>,
     /// Steam app id, for fetching Steam's artwork.
     pub steam_appid: Option<String>,
+    /// Epic catalog item id, for Epic's own artwork.
+    pub epic_item: Option<String>,
 }
 
 pub fn scan() -> Vec<Game> {
@@ -145,6 +147,7 @@ fn steam() -> Vec<Game> {
                 hero: steam_art(&cache, appid, "library_hero"),
                 logo: steam_art(&cache, appid, "logo"),
                 steam_appid: Some(appid.to_string()),
+            epic_item: None,
             });
         }
     }
@@ -218,6 +221,7 @@ fn epic() -> Vec<Game> {
             hero: None,
             logo: None,
             steam_appid: None,
+            epic_item: Some(item.clone()).filter(|x| !x.is_empty()),
         });
     }
     out
@@ -248,6 +252,7 @@ fn gog() -> Vec<Game> {
             hero: None,
             logo: None,
             steam_appid: None,
+            epic_item: None,
         });
     }
     out

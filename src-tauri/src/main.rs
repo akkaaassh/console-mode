@@ -445,6 +445,29 @@ async fn art_steam(appid: String) -> native::art::Art {
     native::art::steam(&appid)
 }
 
+/// Finds a game on the Steam store by name and returns its id, name and official artwork.
+#[tauri::command]
+async fn art_steam_find(name: String) -> Option<serde_json::Value> {
+    let m = native::art::steam_find(&name)?;
+    let art = native::art::steam(&m.id.to_string());
+    Some(serde_json::json!({ "appid": m.id, "name": m.name, "art": art }))
+}
+
+#[tauri::command]
+async fn art_steam_search(query: String) -> Vec<native::art::Match> {
+    native::art::steam_search(&query)
+}
+
+#[tauri::command]
+async fn art_epic(item: String) -> Option<native::art::Art> {
+    native::art::epic(&item)
+}
+
+#[tauri::command]
+fn set_typing(state: State<AppState>, on: bool) {
+    state.shared.typing.store(on, Ordering::SeqCst);
+}
+
 #[tauri::command]
 async fn art_sgdb(key: String, name: String, appid: Option<String>) -> Result<native::art::Art, String> {
     native::art::steamgriddb(&key, &name, appid.as_deref())
@@ -889,6 +912,10 @@ fn main() {
             bt_disconnect,
             bt_forget,
             art_steam,
+            art_steam_find,
+            art_steam_search,
+            art_epic,
+            set_typing,
             art_sgdb,
             set_home_screen,
             switcher_pick,

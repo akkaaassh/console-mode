@@ -46,6 +46,8 @@ pub struct Shared {
     pub switcher_open: AtomicBool,
     /// Extra controller buttons (raw button index) and the action each one runs.
     pub extra: Mutex<Vec<(usize, String)>>,
+    /// True while the console's own keyboard is open (B repeats as backspace).
+    pub typing: AtomicBool,
 }
 
 impl Default for Shared {
@@ -55,6 +57,7 @@ impl Default for Shared {
             our_hwnd: AtomicIsize::new(0),
             osk_hwnd: AtomicIsize::new(0),
             osk_open: AtomicBool::new(false),
+            typing: AtomicBool::new(false),
             prev_fg: AtomicIsize::new(0),
             game_hwnd: AtomicIsize::new(0),
             cursor_speed: AtomicU32::new(100),
@@ -227,6 +230,7 @@ fn run<F: Fn(PadEvent)>(shared: Arc<Shared>, cb: F) {
     let mut last_scan = Instant::now() - Duration::from_secs(10);
     let mut prev: u32 = 0;
     let mut repeat_at: [Option<Instant>; 4] = [None; 4];
+    let mut b_repeat_at: Option<Instant> = None;
     let mut chord_used = false;
     let mut acc = (0.0f32, 0.0f32);
     let mut scroll_acc = (0.0f32, 0.0f32);
@@ -423,6 +427,20 @@ fn run<F: Fn(PadEvent)>(shared: Arc<Shared>, cb: F) {
             let fire = if bit == B_VIEW || bit == B_MENU {
                 // Fire on release so View + Menu can be a chord (and View can be held).
                 released & bit != 0 && !chord_used && !(bit == B_VIEW && sw_released)
+            } else if bit == B_B && (shared.typing.load(Ordering::SeqCst) || osk) && cur & bit != 0 {
+                // Holding B on a keyboard keeps deleting, like holding Backspace.
+                if pressed & bit != 0 {
+                    b_repeat_at = Some(now + Duration::from_millis(420));
+                    true
+                } else {
+                    match b_repeat_at {
+                        Some(t) if now >= t => {
+                            b_repeat_at = Some(now + Duration::from_millis(70));
+                            true
+                        }
+                        _ => false,
+                    }
+                }
             } else if pressed & bit != 0 {
                 if bit & DIRS != 0 {
                     repeat_at[i - 12] = Some(now + Duration::from_millis(380));

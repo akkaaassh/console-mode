@@ -216,9 +216,11 @@ const DEFMAP={'1':'A','2':'B','3':'X','4':'Y','5':'LB','6':'RB','7':'LT','8':'RT
 let MAP={...DEFMAP};
 try{const m=JSON.parse(localStorage.getItem('cm-map')||'null');if(m&&m['1'])MAP=m}catch(e){}
 const saveMap=()=>{try{localStorage.setItem('cm-map',JSON.stringify(MAP))}catch(e){}};
-const OSK=[['1','2','3','4','5','6','7','8','9','0','⌫'],['q','w','e','r','t','y','u','i','o','p'],['a','s','d','f','g','h','j','k','l','Enter'],['Shift','z','x','c','v','b','n','m',',','.'],['@','-','Space','.com','Hide']];
-const OSKW={'⌫':1.5,'Enter':1.6,'Shift':1.6,'Space':5.2,'.com':1.4,'Hide':1.4};
-const OSKH={'⌫':'B','Shift':'X','Space':'Y','Enter':'Menu','Hide':'View'};
+const OSK_LET=[['1','2','3','4','5','6','7','8','9','0','⌫'],['q','w','e','r','t','y','u','i','o','p'],['a','s','d','f','g','h','j','k','l','Enter'],['Shift','z','x','c','v','b','n','m',',','.'],['#+=','@','-','Space','.com','Hide']];
+const OSK_SYM=[['1','2','3','4','5','6','7','8','9','0','⌫'],['!','@','#','$','%','^','&','*','(',')'],['-','_','=','+','/','\\',':',';','\'','Enter'],['"','?','<','>','[',']','{','}','|','~'],['abc','`',',','Space','.','Hide']];
+let OSK=OSK_LET;
+const OSKW={'⌫':1.5,'Enter':1.6,'Shift':1.6,'Space':4.6,'.com':1.4,'Hide':1.4,'#+=':1.4,'abc':1.4};
+const OSKH={'⌫':'B','Shift':'X','Space':'Y','Enter':'Menu','Hide':'View','#+=':'LT','abc':'LT'};
 
 const S={hz:'tiles',hi:0,lz:'grid',set:{sec:0,side:true,g:0,o:0,listen:false,confirm:false,cf:1},screen:NATIVE?'home':'login',last:'',from:'home',pin:'',sel:0,htab:'games',asel:0,tab:0,lsel:0,game:null,gameStart:0,
  qm:{open:false,row:0,col:0,side:false},mi:0,playing:true,pos:82,vol:64,
@@ -266,7 +268,7 @@ function groups(){
  const s=SECS[S.set.sec][1];
  if(s==='appearance')return[{t:'seg',k:'sortGames',label:'Games order · Home row and Library',opts:SORT},{t:'seg',k:'sortApps',label:'Apps order · Apps tab',opts:SORT},{t:'tog',k:'particles',label:'Moving particles in the background'},{t:'tog',k:'showHidden',label:'Show hidden games and apps'},{t:'tog',k:'homeScreen',label:'Home screen mode: no taskbar button, stays behind your apps'},{t:'btn',opts:[['unhide','Unhide everything']]}];
  if(s==='controller')return[{t:'slider',k:'cursor',label:'Pointer speed',min:25,max:300,step:25,unit:'%'},{t:'seg',k:'leftStick',label:'Left stick on the desktop',opts:[['scroll','Scrolls'],['pointer','Moves the pointer']]}];
- if(s==='artwork')return[{t:'field',k:'sgdbKey',label:'SteamGridDB API key (free; for non-Steam games and apps)'},{t:'tog',k:'steamArt',label:'Use Steam’s online artwork for Steam games'},{t:'btn',opts:[['artall','Get artwork for everything'],['artclear','Clear downloaded artwork']]}];
+ if(s==='artwork')return[{t:'field',k:'sgdbKey',label:'SteamGridDB API key (optional)'},{t:'tog',k:'steamArt',label:'Use official Steam store artwork for games'},{t:'btn',opts:[['artall','Refresh artwork for every game'],['artclear','Clear downloaded artwork']]}];
  if(s==='music')return[{t:'field',k:'spClient',label:'Spotify Client ID'},{t:'btn',opts:[['spconnect',spConnected()?'Reconnect Spotify':'Connect Spotify'],...(spConnected()?[['spdisconnect','Disconnect']]:[])]}];
  if(s==='signin')return[{t:'map',keys:['1','2','3','4']},{t:'map',keys:['5','6','7','8']},{t:'map',keys:['9','0','del','enter']},{t:'btn',opts:[['reset','Reset to default'],...(NATIVE?[]:[['signout','Sign out to test']])]}];
  if(s==='power')return[{t:'slider',k:'bright',label:'Screen brightness',min:10,max:100,step:10,unit:'%'},{t:'seg',k:'power',label:'Power mode',opts:[['saver','Power saver'],['balanced','Balanced'],['perf','Performance']]},{t:'seg',k:'res',label:'Resolution',opts:resOpts()},{t:'seg',k:'hz',label:'Refresh rate',opts:hzOpts()}];
@@ -301,7 +303,7 @@ function vSettings(){
  if(sec[1]==='controller')extra=`<div style="font-size:14px;line-height:1.7;color:#c9d2e6;max-width:680px">Inside Console Mode everything is driven with the D-pad, sticks and buttons, like a console.<br>Outside it: right stick moves the pointer (hold <b>LT</b> for fine control), the left stick scrolls, <b>A</b> clicks (hold to drag), <b>B</b> right-clicks, <b>LB/RB</b> go back and forward, <b>Y</b> opens the keyboard, <b>View</b> returns here, <b>Guide</b> (or View + Menu) opens the quick menu. In full-screen games the pointer stays off.</div>`;
  if(sec[1]==='updates'){const u=S.upd||{};const pct=u.pct!=null?Math.round(u.pct):null;
   extra=`<div style="font-size:14px;line-height:1.7;color:#c9d2e6;max-width:640px">This is <b style="color:#fff">build ${S.build||'?'}</b>.<br>${u.busy?esc(u.busy)+(pct!=null?' '+pct+'%':''):u.err?'<span style="color:#ff9a8a">'+esc(u.err)+'</span>':u.latest?(u.newer?'<b style="color:#3FE08A">Build '+u.latest.build+' is available</b> ('+Math.round(u.latest.size/1048576)+' MB). Installing closes Console Mode for a few seconds and opens it again.':'You have the newest version.'):'Press Check for updates.'}${pct!=null?`<div class="bar" style="margin-top:10px;width:360px"><i style="width:${pct}%"></i></div>`:''}</div>`}
- if(sec[1]==='artwork')extra=`<div style="font-size:14px;line-height:1.6;color:#c9d2e6;max-width:640px">Steam games get their cover, background and title logo straight from Steam. For other games and apps, make a free account at <b>steamgriddb.com</b>, open <b>Preferences › API</b>, generate a key and paste it above. Change any single game from its <b>···</b> menu › Find artwork online.</div>`;
+ if(sec[1]==='artwork')extra=`<div style="font-size:14px;line-height:1.6;color:#c9d2e6;max-width:640px">Games get their official cover, background and logo from the Steam store, even when you bought them on Epic, GOG or elsewhere. Epic games can also use Epic’s own images. A SteamGridDB key (free at <b>steamgriddb.com › Preferences › API</b>) is optional, for games that aren’t on Steam. Change any single game from its <b>···</b> menu › Change artwork.</div>`;
  if(sec[1]==='appearance'){const pv=sortBy(GAMES.filter(g=>!g.tags.includes('ni')),PREF.sortGames).slice(0,6),pa=sortBy(APPS,PREF.sortApps).slice(0,6);
   extra=`<div style="display:flex;gap:28px;margin-top:6px">${[['Home row preview · games',pv],['Apps preview',pa]].map(([l,list])=>`<div><div class="gl">${l}</div><div style="display:flex;gap:8px">${list.map(g=>`<div title="${esc(g.t)}" style="width:64px;height:64px;border-radius:10px;background:${grad(g)};padding:5px;font:600 9px Inter;line-height:1.1;overflow:hidden">${esc(g.t)}</div>`).join('')}</div></div>`).join('')}</div>`}
  const stats=sec[1]==='power'?`<aside style="width:320px;flex:none;display:flex;flex-direction:column;gap:10px"><div class="gl" style="margin:0">PC stats · live</div>
@@ -387,9 +389,9 @@ function mus(a){if(a==='spot'){S.qm.side?spClosePanel():spOpenPanel();return}if(
 /* ---------- on-screen keyboard ---------- */
 function openOsk(el){
  document.querySelectorAll('.tgt').forEach(e=>e.classList.remove('tgt'));
- S.osk.open=true;S.osk.el=el;S.osk.caret=el.value.length;el.classList.add('tgt');if(document.activeElement)document.activeElement.blur();renderOSK();
+ S.osk.open=true;S.osk.el=el;OSK=OSK_LET;invoke('set_typing',{on:true});S.osk.caret=el.value.length;el.classList.add('tgt');if(document.activeElement)document.activeElement.blur();renderOSK();
 }
-function closeOsk(){if(S.osk.el)S.osk.el.classList.remove('tgt');S.osk.open=false;S.osk.el=null;renderOSK()}
+function closeOsk(){if(S.osk.open)invoke('set_typing',{on:false});if(S.osk.el)S.osk.el.classList.remove('tgt');S.osk.open=false;S.osk.el=null;renderOSK()}
 function renderOSK(){
  const o=$('#osk');if(!S.osk.open){o.style.display='none';return}
  o.style.display='flex';const el=S.osk.el,v=el.value,c=S.osk.caret;
@@ -397,12 +399,13 @@ function renderOSK(){
  const rows=OSK.map((r,ri)=>`<div class="krow">${r.map((k,ci)=>{const sp=k.length>1||k==='⌫';const lab=!sp&&S.osk.shift?k.toUpperCase():k;
   return `<button class="k ${sp?'sp':''} ${ri===S.osk.r&&ci===S.osk.c?'on':''} ${k==='Shift'&&S.osk.shift?'lit':''}" style="flex:${OSKW[k]||1} 1 0" data-act="osk:${ri}:${ci}">${esc(lab)}<span>${OSKH[k]||''}</span></button>`}).join('')}</div>`).join('');
  o.innerHTML=`<div class="preview"><span class="muted" style="font-size:13px;width:56px">${label}</span><code>${esc(v.slice(0,c).replace(/\n/g,' ⏎ '))}<span class="caret"></span>${esc(v.slice(c).replace(/\n/g,' ⏎ '))}</code></div>${rows}
- <div class="hint" style="justify-content:center;font-size:12px;gap:16px"><span><b>A</b>Key</span><span><b>B</b>Backspace</span><span><b>X</b>Shift</span><span><b>Y</b>Space</span><span><b>LB</b><b>RB</b>Move text cursor</span><span><b>Menu</b>Enter</span><span><b>View</b>Hide</span><span><b>RS</b>Mouse</span></div>`;
+ <div class="hint" style="justify-content:center;font-size:12px;gap:16px"><span><b>A</b>Key</span><span><b>B</b>Backspace (hold)</span><span><b>X</b>Shift</span><span><b>Y</b>Space</span><span><b>LT</b>Symbols</span><span><b>LB</b><b>RB</b>Move text cursor</span><span><b>Menu</b>Enter</span><span><b>View</b>Hide</span><span><b>RS</b>Mouse</span></div>`;
 }
 function oskKey(k){
  const o=S.osk,el=o.el;if(!el)return;let v=el.value,c=o.caret;
  if(k==='Hide'){closeOsk();return}
  if(k==='Shift'){o.shift=!o.shift;renderOSK();return}
+ if(k==='#+='||k==='abc'){OSK=k==='abc'?OSK_LET:OSK_SYM;o.r=Math.min(o.r,OSK.length-1);o.c=Math.min(o.c,OSK[o.r].length-1);renderOSK();return}
  if(k==='⌫'){if(c>0){v=v.slice(0,c-1)+v.slice(c);c--}}
  else if(k==='Enter'){if(el.tagName==='TEXTAREA'){v=v.slice(0,c)+'\n'+v.slice(c);c++}else{closeOsk();if(el.id==='sheetFld'&&S.sheet){sheetAct(0);return}if(el.dataset.save){PREF[el.dataset.save]=v.trim();savePref();toast('Saved');render()}else toast(v.trim()?'Searched for “'+v.trim()+'”':'Search is empty');return}}
  else{const ins=k==='Space'?' ':(o.shift&&k.length===1?k.toUpperCase():k);v=v.slice(0,c)+ins+v.slice(c);c+=ins.length;if(k!=='Space')o.shift=false}
@@ -419,6 +422,7 @@ function oskBtn(b){
  else if(b==='X'){oskKey('Shift');return}
  else if(b==='Y'){oskKey('Space');return}
  else if(b==='Menu'){oskKey('Enter');return}
+ else if(b==='LT'){oskKey(OSK===OSK_SYM?'abc':'#+=');return}
  else if(b==='View'){closeOsk();return}
  else if(b==='LB')o.caret=Math.max(0,o.caret-1);
  else if(b==='RB')o.caret=Math.min(o.el.value.length,o.caret+1);
@@ -633,7 +637,7 @@ async function loadApps(){
  for(const a of list){const id='app:'+a.app_id,ts=PLAYED[id]||0,[c1,c2]=colors(a.name);
   APPS.push({id,orig:a.name,t:NAMES[id]||a.name,s:a.web?'Installed web app':'Installed app',last:ago(ts),ts,lp:ts?-ts:1e12,inst:'',app:true,web:!!a.web,c1,c2,tags:FAV[id]?['fav']:[],kind:'appid',target:a.app_id})}
  for(const w of webAppItems())APPS.push(w);
- APPS.forEach(applyArt);setTimeout(loadAppIcons,200);S.asel=0;S.appsScanned=true;render();if((PREF.sgdbKey||'').trim())queueArt(APPS);
+ APPS.forEach(applyArt);setTimeout(loadAppIcons,200);S.asel=0;S.appsScanned=true;render();
 }
 async function addGame(){
  if(!NATIVE){toast('Adding games works in the Windows app');return}
@@ -1070,30 +1074,44 @@ function connBtn(b){
 /* ---- artwork from the internet ---- */
 function applyArt(g){const a=ART[gid(g)];if(!a)return;if(a.cover)g.cover=a.cover;if(a.hero)g.hero=a.hero;if(a.logo)g.logo=a.logo;if(!g.cover&&a.icon&&g.app)g.cover=a.icon}
 const artQ=[];let artBusy=false;
-function queueArt(list){for(const g of list){const a=ART[gid(g)];if(a&&a.done)continue;if(g.steam&&PREF.steamArt!==false&&g.cover&&g.hero&&g.logo)continue;if(!artQ.includes(g))artQ.push(g)}runArt()}
+if(!localStorage.getItem('cm-artv2')){for(const k in ART)if(!ART[k].manual)delete ART[k];keep('cm-art',ART);try{localStorage.setItem('cm-artv2','1')}catch(e){}}
+function queueArt(list){for(const g of list){const a=ART[gid(g)];if(a&&a.done)continue;if(!artQ.includes(g))artQ.push(g)}runArt()}
 async function runArt(){
  if(artBusy||!NATIVE)return;artBusy=true;
  while(artQ.length){const g=artQ.shift();await getArt(g,false);await new Promise(r=>setTimeout(r,250))}
  artBusy=false;
 }
 async function getArt(g,force){
- const id=gid(g);let a=force?{}:{...(ART[id]||{})};let err='';
- if(g.steam&&PREF.steamArt!==false&&(force||!a.cover||!a.hero||!a.logo)){const s=await invoke('art_steam',{appid:g.steam});if(s)for(const k of['cover','hero','logo'])if(s[k]&&(force||!a[k]))a[k]=s[k]}
- const key=(PREF.sgdbKey||'').trim();
- if(key&&(force||!a.cover||!a.hero||!a.logo)){
-  try{const s=await window.__TAURI__.core.invoke('art_sgdb',{key,name:g.orig||g.t,appid:g.steam||null});for(const k of['cover','hero','logo','icon'])if(s[k]&&(force||!a[k]))a[k]=s[k]}catch(e){err=String(e)}
+ const id=gid(g);const old=ART[id]||{};
+ if(old.manual&&!force)return '';
+ let a=force?{}:{...old};let err='';
+ const need=()=>!a.cover||!a.hero||!a.logo;
+ const fill=(src,tag)=>{if(!src)return;for(const k of['cover','hero','logo','icon'])if(src[k]&&!a[k]){a[k]=src[k];a.from=a.from||tag}};
+ if(!g.app){
+  // 1. Steam's official store images (the game's own Steam id, or found by name for games from other stores)
+  if(PREF.steamArt!==false){
+   if(g.steam)fill(await invoke('art_steam',{appid:g.steam}),'steam');
+   if(need()&&g.epic)fill(await invoke('art_epic',{item:g.epic}),'epic');
+   if(need()&&!g.steam){const f=await invoke('art_steam_find',{name:g.orig||g.t});if(f){a.steamid=f.appid;fill(f.art,'steam')}}
+  }else if(g.epic)fill(await invoke('art_epic',{item:g.epic}),'epic');
  }
- a.done=true;ART[id]=a;keep('cm-art',ART);applyArt(g);
+ // 2. SteamGridDB only for what's still missing (and only for games, unless asked)
+ const key=(PREF.sgdbKey||'').trim();
+ if(key&&need()&&(!g.app||force)){
+  try{fill(await window.__TAURI__.core.invoke('art_sgdb',{key,name:g.orig||g.t,appid:g.steam||(a.steamid?String(a.steamid):null)}),'sgdb')}catch(e){err=String(e)}
+ }
+ a.done=true;a.v=2;ART[id]=a;keep('cm-art',ART);
+ if(force){delete g.cover;delete g.hero;delete g.logo}
+ applyArt(g);
  if(S.screen==='home'||S.screen==='library')render();
  return err;
 }
 async function fetchArt(g,force){
  if(!NATIVE){toast('Artwork downloads in the Windows app');return}
- if(!g.steam&&!(PREF.sgdbKey||'').trim()){toast('Add a free SteamGridDB API key in Settings › Artwork first');return}
- toast('Looking for artwork…');const err=await getArt(g,force);
+  toast('Looking for artwork…');const err=await getArt(g,force);
  const a=ART[gid(g)]||{};toast(err?err:(a.cover||a.hero||a.logo)?'Artwork updated':'No artwork found for '+g.t);
 }
-function artAll(){if(!NATIVE){toast('Artwork downloads in the Windows app');return}for(const g of GAMES.concat(APPS)){const a=ART[gid(g)];if(a)a.done=false}queueArt(GAMES.concat(APPS));toast('Getting artwork in the background…')}
+function artAll(){if(!NATIVE){toast('Artwork downloads in the Windows app');return}for(const g of GAMES){const a=ART[gid(g)];if(a&&!a.manual)delete ART[gid(g)]}keep('cm-art',ART);artQ.length=0;for(const g of GAMES)artQ.push(g);runArt();toast('Getting official artwork for every game in the background…')}
 function artClear(){for(const k in ART)delete ART[k];keep('cm-art',ART);toast('Downloaded artwork cleared');if(NATIVE)loadGames(),loadApps()}
 
 /* ---- live stats for the PC stats pill ---- */
@@ -1109,7 +1127,7 @@ let mT;function mouseSeen(){document.documentElement.classList.remove('nomouse')
 document.documentElement.classList.add('nomouse');
 document.addEventListener('mousemove',mouseSeen);
 
-function gameFrom(g){const o=gameFrom0(g);o.orig=g.name;if(NAMES[o.id])o.t=NAMES[o.id];o.logo=fsrc(g.logo);o.steam=g.steam_appid||null;applyArt(o);return o}
+function gameFrom(g){const o=gameFrom0(g);o.orig=g.name;if(NAMES[o.id])o.t=NAMES[o.id];o.logo=fsrc(g.logo);o.steam=g.steam_appid||null;o.epic=g.epic_item||null;applyArt(o);return o}
 setInterval(pollHomeStats,2000);setTimeout(pollHomeStats,400);
 /* ---------- v0.4: quick menu with a Spotify browser ---------- */
 const SP_SCOPES='user-read-playback-state user-read-currently-playing user-modify-playback-state playlist-read-private playlist-read-collaborative user-library-read';
@@ -1283,42 +1301,55 @@ async function updateSourceIcon(m){
 
 /* ---------- artwork gallery ---------- */
 const GKINDS=[['grids','Cover','cover'],['heroes','Background','hero'],['logos','Logo','logo']];
+const SRCS=[['steam','Steam (official)'],['sgdb','SteamGridDB']];
 async function openGallery(g){
- const key=(PREF.sgdbKey||'').trim();
- S.gal={g,k:0,zone:'top',i:0,ti:0,matches:[],match:null,imgs:{},busy:'',err:''};render();
+ const prev=ART[gid(g)]||{};
+ S.gal={g,src:g.app&&(PREF.sgdbKey||'').trim()?'sgdb':'steam',k:0,zone:'top',i:0,ti:0,matches:[],match:null,imgs:{},busy:'',err:''};render();
  if(!NATIVE){S.gal.err='The gallery works in the Windows app.';render();return}
- if(!key){S.gal.err='Add your free SteamGridDB key in Settings › Artwork to browse artwork. You can still use an image from this PC.';render();return}
- await galSearch((ART[gid(g)]||{}).q||g.orig||g.t,(ART[gid(g)]||{}).sgdb);
+ await galSearch(prev.q||g.orig||g.t,S.gal.src==='steam'?(prev.steamid||(g.steam?+g.steam:null)):prev.sgdb);
 }
 async function galSearch(q,prefer){
- const G=S.gal;if(!G)return;G.busy='Searching for “'+q+'”…';G.err='';render();
- try{G.matches=await window.__TAURI__.core.invoke('art_search',{key:PREF.sgdbKey.trim(),query:q});G.q=q}catch(e){G.err=String(e);G.matches=[]}
+ const G=S.gal;if(!G)return;G.busy='Searching for “'+q+'”…';G.err='';G.q=q;G.matches=[];G.match=null;G.imgs={};render();
+ const key=(PREF.sgdbKey||'').trim();
+ if(G.src==='sgdb'){
+  if(!key){G.busy='';G.err='SteamGridDB needs your free key in Settings › Artwork. Try the Steam source, a link, or an image from this PC.';render();return}
+  try{G.matches=await window.__TAURI__.core.invoke('art_search',{key,query:q})}catch(e){G.err=String(e)}
+ }else G.matches=await invoke('art_steam_search',{query:q})||[];
+ if(!S.gal||S.gal!==G)return;
  G.busy='';
- const m=G.matches.find(x=>x.id===prefer)||G.matches[0];
- if(m)await galUse(m);else{G.err=G.err||'Nothing found for “'+q+'”. Try another name.';render()}
+ let m=G.matches.find(x=>x.id===prefer);
+ if(!m&&G.src==='steam'&&prefer&&!G.matches.length)m={id:prefer,name:G.g.orig||G.g.t};
+ m=m||G.matches[0];
+ if(m)await galUse(m);else{G.err=G.err||'Nothing found on '+(G.src==='steam'?'Steam':'SteamGridDB')+' for “'+q+'”. Try another name or source.';render()}
 }
-async function galUse(m){
- const G=S.gal;if(!G)return;G.match=m;G.imgs={};G.i=0;await galLoad();
-}
+async function galUse(m){const G=S.gal;if(!G)return;G.match=m;G.imgs={};G.i=0;await galLoad()}
 async function galLoad(){
  const G=S.gal;if(!G||!G.match)return;const kind=GKINDS[G.k][0];
  if(G.imgs[kind]){render();return}
- G.busy='Loading '+GKINDS[G.k][1].toLowerCase()+'s…';render();
- try{G.imgs[kind]=await window.__TAURI__.core.invoke('art_images',{key:PREF.sgdbKey.trim(),id:G.match.id,kind})}catch(e){G.err=String(e);G.imgs[kind]=[]}
+ G.busy='Loading…';render();
+ if(G.src==='steam'){
+  const a=await invoke('art_steam',{appid:String(G.match.id)})||{};
+  const one=u=>u?[{url:u,thumb:u}]:[];
+  G.imgs={grids:one(a.cover),heroes:one(a.hero),logos:one(a.logo)};
+ }else{
+  try{G.imgs[kind]=await window.__TAURI__.core.invoke('art_images',{key:PREF.sgdbKey.trim(),id:G.match.id,kind})}catch(e){G.err=String(e);G.imgs[kind]=[]}
+ }
  G.busy='';render();
 }
-const galTop=()=>[['match','Change match'],['search','Search another name'],['local','Use an image from this PC'],['reset','Reset to automatic'],['close','Done']];
+const galTop=()=>[['src','Source: '+(S.gal.src==='steam'?'Steam':'SteamGridDB')],['match','Change match'],['search','Search another name'],['link','Use an image link'],['local','Image from this PC'],['reset','Reset'],['close','Done']];
 function galSet(field,url){
- const G=S.gal,g=G.g,id=gid(g),a={...(ART[id]||{})};a[field]=url;a.done=true;a.manual=true;if(G.match){a.sgdb=G.match.id;a.q=G.q}ART[id]=a;keep('cm-art',ART);g[field]=url;
+ const G=S.gal,g=G.g,id=gid(g),a={...(ART[id]||{})};a[field]=url;a.done=true;a.manual=true;a.v=2;if(G.match){if(G.src==='steam')a.steamid=G.match.id;else a.sgdb=G.match.id;a.q=G.q}ART[id]=a;keep('cm-art',ART);g[field]=url;
  toast(GKINDS.find(k=>k[2]===field)[1]+' updated');render();
 }
 async function galTopAct(k){
  const G=S.gal;
  if(k==='close'){S.gal=null;render();return}
- if(k==='match'){if(!G.matches.length){toast('Search for a name first');return}openSheet({title:'Which game is it?',sub:'Matches on SteamGridDB',items:G.matches.map(m=>({label:m.name+(m.year&&!m.name.includes(String(m.year))?' ('+m.year+')':''),fn:()=>galUse(m)})).concat([{label:'Cancel'}])});return}
+ if(k==='src'){G.src=G.src==='steam'?'sgdb':'steam';G.ti=0;galSearch(G.q||G.g.orig||G.g.t);return}
+ if(k==='match'){if(!G.matches.length){toast('Search for a name first');return}openSheet({title:'Which one is it?',sub:'Matches on '+(G.src==='steam'?'the Steam store':'SteamGridDB'),items:G.matches.map(m=>({label:m.name+(m.year&&!m.name.includes(String(m.year))?' ('+m.year+')':''),fn:()=>galUse(m)})).concat([{label:'Cancel'}])});return}
  if(k==='search'){openSheet({title:'Search another name',sub:'Try the full title, e.g. “Marvel’s Spider-Man 2”',input:{label:'Name',value:G.q||G.g.orig||G.g.t},items:[{label:'Search',fn:v=>{if(v)galSearch(v)}},{label:'Cancel'}]});return}
+ if(k==='link'){const f=GKINDS[G.k];openSheet({title:'Use an image link as the '+f[1].toLowerCase(),sub:'Copy an image’s address from any website and paste it here',input:{label:'Image link',placeholder:'https://…'},items:[{label:'Use it',fn:v=>{if(!/^https?:\/\//i.test(v||'')){toast('That isn’t a web link');return}galSet(f[2],v)}},{label:'Cancel'}]});return}
  if(k==='local'){if(!NATIVE)return;const p=await invoke('pick_image');if(p)galSet(GKINDS[G.k][2],fsrc(p));return}
- if(k==='reset'){delete ART[gid(G.g)];keep('cm-art',ART);toast('Artwork reset');S.gal=null;if(NATIVE){loadGames();loadApps()}render()}
+ if(k==='reset'){const g=G.g;delete ART[gid(g)];keep('cm-art',ART);S.gal=null;toast('Getting automatic artwork…');if(NATIVE){delete g.cover;delete g.hero;delete g.logo;await getArt(g,true);if(g.app)loadApps();else loadGames()}render()}
 }
 function renderGal(){
  const el=$('#gal'),G=S.gal;if(!G){el.style.display='none';el.innerHTML='';return}
@@ -1327,8 +1358,8 @@ function renderGal(){
  const start=Math.max(0,Math.floor(G.i/cols)*cols-cols),vis=imgs.slice(start,start+cols*3);
  const cur=G.g[kind[2]];
  el.innerHTML=`<div style="position:absolute;inset:0;background:#070b16;padding:26px 48px;display:flex;flex-direction:column;gap:14px">
-  <div style="display:flex;justify-content:space-between;align-items:center"><div><div class="h" style="font-size:26px;font-weight:700">Artwork · ${esc(G.g.t)}</div><div class="muted" style="font-size:13px">${G.match?'Showing SteamGridDB results for “'+esc(G.match.name)+'”':'No match selected'}${G.busy?' · '+esc(G.busy):''}</div></div>
-   <div style="display:flex;gap:8px">${galTop().map(([k,l],i)=>`<button class="btn ${G.zone==='top'&&G.ti===i?'sf':''}" data-act="galtop:${k}">${l}</button>`).join('')}</div></div>
+  <div style="display:flex;flex-direction:column;gap:12px"><div><div class="h" style="font-size:26px;font-weight:700">Artwork · ${esc(G.g.t)}</div><div class="muted" style="font-size:13px">${G.match?'Showing '+(G.src==='steam'?'Steam’s official images':'SteamGridDB')+' for “'+esc(G.match.name)+'”':'No match selected'}${G.busy?' · '+esc(G.busy):''}</div></div>
+   <div style="display:flex;gap:8px;flex-wrap:wrap">${galTop().map(([k,l],i)=>`<button class="btn ${G.zone==='top'&&G.ti===i?'sf':''}" data-act="galtop:${k}">${l}</button>`).join('')}</div></div>
   <div class="tabs">${GKINDS.map((k,i)=>`<button class="tab ${G.k===i?'on':''}" data-act="galk:${i}">${k[1]}</button>`).join('')}<span class="muted" style="font-size:12px;align-self:center;margin-left:12px">Current: ${cur?'set':'none'}</span></div>
   ${G.err?`<p style="margin:0;color:#ff9a8a;font-size:14px">${esc(G.err)}</p>`:''}
   <div style="display:grid;grid-template-columns:repeat(${cols},minmax(0,1fr));gap:14px;flex:1;align-content:start;overflow:hidden">${vis.map((im,j)=>{const i=start+j;return `<button class="gimg ${G.zone==='grid'&&G.i===i?'sf':''} ${im.url===cur?'cur':''}" data-act="galimg:${i}" style="aspect-ratio:${kind[0]==='grids'?'2/3':kind[0]==='heroes'?'96/31':'2/1'};background:${kind[0]==='logos'?'#1a2238':'#141b2e'} url('${esc(im.thumb)}') center/${kind[0]==='logos'?'contain':'cover'} no-repeat"></button>`}).join('')}${!imgs.length&&!G.busy&&G.match?'<p class="muted">No images of this kind.</p>':''}</div>
