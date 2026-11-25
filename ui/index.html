@@ -97,6 +97,10 @@ button{font:inherit;color:inherit;cursor:pointer;border:none;background:none;pad
 .stat{padding:10px 14px;border-radius:12px;background:rgba(255,255,255,.05)}
 .side button{padding:12px;border-radius:10px;color:rgba(255,255,255,.7);font-size:15px;text-align:left}.side button.on{background:rgba(255,255,255,.1);color:#fff;font-weight:600}
 /* chrome */
+#bg{position:absolute;inset:0;transition:background .5s}
+#fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+#opt{position:absolute;inset:0;z-index:30;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.55)}
+.fld{width:520px;height:46px;border-radius:10px;border:2px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;font:16px Inter,sans-serif;padding:0 14px;outline:none}.fld:focus,.fld.tgt{border-color:#5B9BFF}
 #cur{position:absolute;left:0;top:0;pointer-events:none;z-index:50;opacity:0;transition:opacity .3s}
 #toast{position:absolute;left:50%;top:22px;transform:translateX(-50%);z-index:60;background:rgba(20,26,40,.97);border:1px solid rgba(255,255,255,.15);padding:10px 18px;border-radius:20px;font-size:14px;opacity:0;transition:opacity .25s;pointer-events:none;white-space:nowrap}
 #help{position:absolute;inset:0;z-index:70;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.6)}
@@ -109,6 +113,8 @@ button{font:inherit;color:inherit;cursor:pointer;border:none;background:none;pad
 </head>
 <body>
 <div id="wrap"><div id="stage">
+  <div id="bg"></div>
+  <canvas id="fx" aria-hidden="true"></canvas>
   <div id="scr" class="scr"></div>
   <div id="desk">
     <div class="win">
@@ -129,6 +135,7 @@ button{font:inherit;color:inherit;cursor:pointer;border:none;background:none;pad
   </div>
   <div id="osk"></div>
   <div id="qm"></div>
+  <div id="opt"></div>
   <div id="toast"></div>
   <div id="help"></div>
   <div id="cur"><svg width="26" height="30" viewBox="0 0 26 30" aria-hidden="true"><path d="M2 2 L2 24 L8 18 L12 28 L16 26 L12 17 L21 17 Z" fill="#fff" stroke="#05070d" stroke-width="2" stroke-linejoin="round"/></svg></div>
@@ -177,7 +184,7 @@ const APPS=[
 ['2023-01-10','2023-04-02','2022-11-11','2025-06-01','2025-03-30','2021-08-08','2024-02-02','2025-12-12','2024-09-09'].forEach((d,i)=>APPS[i].inst=d);
 let LPC=0;
 const sortBy=(list,m)=>[...list].sort(m==='name'?(a,b)=>a.t.localeCompare(b.t):m==='installed'?(a,b)=>(b.inst||'').localeCompare(a.inst||''):(a,b)=>a.lp-b.lp);
-const DEFPREF={sortGames:'recent',sortApps:'recent',bright:100,power:'balanced',res:'1920×1080',hz:'144',startup:true,pinpad:true};
+const DEFPREF={sortGames:'recent',sortApps:'recent',bright:100,cursor:100,leftMouse:true,particles:true,showHidden:false,spClient:'',power:'balanced',res:'1920×1080',hz:'144',startup:true,pinpad:true};
 let PREF={...DEFPREF};
 try{Object.assign(PREF,JSON.parse(localStorage.getItem('cm-pref')||'{}'))}catch(e){}
 const savePref=()=>{try{localStorage.setItem('cm-pref',JSON.stringify(PREF))}catch(e){}};
@@ -201,7 +208,7 @@ const grad=g=>(g.cover?`url('${g.cover}') center/cover no-repeat,`:'')+`linear-g
 const clock=()=>new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',hour12:false});
 const mmss=s=>Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
 const track=i=>{const t=TRACKS[(i%TRACKS.length+TRACKS.length)%TRACKS.length];return{t:t[0],a:t[1],len:t[2],art:`linear-gradient(135deg,${t[3]},${t[4]})`}};
-const lib=()=>sortBy(GAMES.filter(TABS[S.tab][1]),PREF.sortGames);
+const lib=()=>sortBy(GAMES.filter(g=>visible(g)&&TABS[S.tab][1](g)),PREF.sortGames);
 let tt;function toast(m){const t=$('#toast');t.textContent=m;t.style.opacity=1;clearTimeout(tt);tt=setTimeout(()=>t.style.opacity=0,2200)}
 
 /* ---------- screens ---------- */
@@ -228,9 +235,9 @@ function vWelcome(){return `<div style="position:absolute;inset:0;display:flex;f
 function vHome(){
  const ap=S.htab==='apps',list=homeList(),cs=ap?S.asel:S.sel,g=list[cs],tr=track(S.mi);
  if(!g)return emptyHome(ap);
+ S.heroBg=`${g.hero?`url('${g.hero}') center/cover no-repeat,`:''}radial-gradient(90% 100% at 75% 35%,${g.c2} 0%,${g.c1} 45%,#05070d 100%)`;
  const tiles=list.map((x,i)=>`<button class="tile ${i===cs?'on':''}" data-act="sel:${i}" aria-label="${esc(x.t)}" style="background:${grad(x)}">${ap?`<span style="position:absolute;left:8px;right:8px;top:8px;font:700 12px 'Space Grotesk',sans-serif;line-height:1.1;text-align:left">${esc(x.t)}</span>`:''}${S.game===x?'<em>Running</em>':''}</button>`).join('');
- return `<div style="position:absolute;inset:0;background:${g.hero?`url('${g.hero}') center/cover no-repeat,`:''}radial-gradient(90% 100% at 75% 35%,${g.c2} 0%,${g.c1} 45%,#05070d 100%);transition:background .4s"></div>
- <div style="position:absolute;inset:0;background:linear-gradient(90deg,rgba(5,7,13,.85) 0%,rgba(5,7,13,.3) 45%,rgba(5,7,13,0) 70%),linear-gradient(180deg,rgba(5,7,13,.6) 0%,rgba(5,7,13,0) 22%,rgba(5,7,13,0) 55%,rgba(5,7,13,.92) 100%)"></div>
+ return ` <div style="position:absolute;inset:0;background:linear-gradient(90deg,rgba(5,7,13,.85) 0%,rgba(5,7,13,.3) 45%,rgba(5,7,13,0) 70%),linear-gradient(180deg,rgba(5,7,13,.6) 0%,rgba(5,7,13,0) 22%,rgba(5,7,13,0) 55%,rgba(5,7,13,.92) 100%)"></div>
  <header style="position:absolute;left:48px;right:48px;top:22px;display:flex;align-items:center;justify-content:space-between">
   <nav style="display:flex;gap:30px"><button data-act="htab:games" style="font-size:19px;${ap?'color:rgba(255,255,255,.55)':'font-weight:600'}">Games</button><button data-act="htab:apps" style="font-size:19px;${ap?'font-weight:600':'color:rgba(255,255,255,.55)'}">Apps</button>${ap?`<button data-act="rescan:apps" style="font-size:13px;color:#a9b4cc;align-self:center">Rescan apps</button>`:''}</nav>
   <div style="display:flex;gap:12px;align-items:center">
@@ -246,10 +253,10 @@ function vHome(){
   <div class="h" style="font-size:50px;line-height:1;font-weight:700;text-transform:uppercase;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${esc(g.t)}</div>
   <div style="display:flex;gap:12px;align-items:center">
    <button class="btn pri" style="width:180px;height:48px;border-radius:24px;font-size:17px" data-act="play">${S.game===g?'Resume':ap?'Open':'Play'}</button>
-   <button class="ic" style="width:48px;height:48px;border-radius:24px;background:rgba(255,255,255,.16);font-weight:700" aria-label="More options" data-act="toast:Options: change art, add to collection, virtual controller">···</button>
+   <button class="ic" style="width:48px;height:48px;border-radius:24px;background:rgba(255,255,255,.16);font-weight:700" aria-label="More options" data-act="opts">···</button>
    <span style="font-size:14px;color:rgba(255,255,255,.75);margin-left:6px">${ap?g.s:gmeta(g)}</span>
   </div></section>
- <div class="hint" style="position:absolute;left:48px;top:560px"><span><b>LB</b><b>RB</b>Games / Apps</span><span><b>←→</b>Choose</span><span><b>A</b>${ap?'Open':'Play'}</span><span><b>Y</b>Library</span><span><b>View</b>Desktop</span><span><b>Menu</b>Settings</span><span><b>G</b>Quick menu</span></div>
+ <div class="hint" style="position:absolute;left:48px;top:560px"><span><b>LB</b><b>RB</b>Games / Apps</span><span><b>←→</b>Choose</span><span><b>A</b>${ap?'Open':'Play'}</span><span><b>X</b>Options</span><span><b>Y</b>Library</span><span><b>View</b>Desktop</span><span><b>Menu</b>Settings</span><span><b>G</b>Quick menu</span></div>
  <section style="position:absolute;left:48px;right:48px;bottom:26px;display:flex;gap:14px">
   <div class="card"><small>Continue</small><b style="font-size:15px">${S.game?esc(S.game.t):'Nothing running'}</b><div class="bar"><i style="width:${S.game?62:0}%"></i></div></div>
   <div class="card"><small>${ap?'Last opened':'Last played'}</small><b style="font-size:15px">${g.last}</b><small>${g.s}</small></div>
@@ -263,9 +270,9 @@ function vLibrary(){
  const items=list.length?list.map((g,i)=>`<button class="gi ${i===S.lsel?'on':''}" data-act="lib:${i}"><div class="cover" style="background:${grad(g)}"><span>${g.s}</span></div><p>${esc(g.t)}</p></button>`).join(''):`<p class="muted" style="grid-column:1/-1">Nothing in this collection yet.</p>`;
  return `<div style="position:absolute;inset:0;padding:28px 56px 0;display:flex;flex-direction:column;gap:18px">
  <div style="display:flex;justify-content:space-between;align-items:center"><h1 class="h" style="margin:0;font-size:32px">Library</h1>
-  <div style="display:flex;gap:10px"><button class="btn" data-act="toast:Add game: pick an .exe or shortcut">+ Add game</button><button class="btn" data-act="rescan:games">Rescan</button><button class="btn" data-act="go:home">Home</button></div></div>
+  <div style="display:flex;gap:10px"><button class="btn" data-act="addgame">+ Add game</button><button class="btn" data-act="rescan:games">Rescan</button><button class="btn" data-act="go:home">Home</button></div></div>
  <div class="tabs">${tabs}</div><div class="grid">${items}</div></div>
- <div class="hint" style="position:absolute;left:56px;bottom:20px"><span><b>LB</b><b>RB</b>Collection</span><span><b>A</b>Play</span><span><b>B</b>Back</span></div>`;
+ <div class="hint" style="position:absolute;left:56px;bottom:20px"><span><b>LB</b><b>RB</b>Collection</span><span><b>A</b>Play</span><span><b>X</b>Options</span><span><b>Y</b>Add game</span><span><b>B</b>Back</span></div>`;
 }
 function vGame(){
  const g=S.game,secs=Math.floor((Date.now()-S.gameStart)/1000);
@@ -274,13 +281,15 @@ function vGame(){
  <div style="margin-top:10px;color:rgba(255,255,255,.8)">${g.app?'Pretend app open, full screen':'Pretend game running'} · <span id="gt">${mmss(secs)}</span></div></div>
  <div class="hint" style="position:absolute;left:0;right:0;bottom:28px;justify-content:center;color:#fff"><span><b>Guide</b>or <b>View+Menu</b>or <b>G</b>open the quick menu</span></div>`;
 }
-const SECS=[['Home & appearance','appearance','Choose which games and apps show first on Home and in the Library.'],['Sign-in & PIN pad','signin','Which controller button types which digit on the sign-in screen. Select a digit, then press a button. The sign-in plug-in that uses this comes in a later version.'],['TV & power','power','Screen, display mode and power for the PC this launcher runs on.'],['Startup','startup','How Console Mode starts with Windows, and how to leave it.']];
+const SECS=[['Home & appearance','appearance','Choose which games and apps show first on Home and in the Library, and how Home looks.'],['Controller','controller','How the controller moves the mouse pointer outside the console.'],['Music','music','Connect Spotify to see what’s playing next in the quick menu. Playback controls already work with any music app.'],['Sign-in & PIN pad','signin','Which controller button types which digit on the sign-in screen. Select a digit, then press a button. The sign-in plug-in that uses this comes in a later version.'],['TV & power','power','Screen, display mode and power for the PC this launcher runs on.'],['Startup','startup','How Console Mode starts with Windows, and how to leave it.']];
 const SORT=[['recent','Recently played'],['name','Name A–Z'],['installed','Recently installed']];
 function groups(){
  const s=SECS[S.set.sec][1];
- if(s==='appearance')return[{t:'seg',k:'sortGames',label:'Games order · Home row and Library',opts:SORT},{t:'seg',k:'sortApps',label:'Apps order · Apps tab',opts:SORT}];
+ if(s==='appearance')return[{t:'seg',k:'sortGames',label:'Games order · Home row and Library',opts:SORT},{t:'seg',k:'sortApps',label:'Apps order · Apps tab',opts:SORT},{t:'tog',k:'particles',label:'Moving particles in the background'},{t:'tog',k:'showHidden',label:'Show hidden games and apps'},{t:'btn',opts:[['unhide','Unhide everything']]}];
+ if(s==='controller')return[{t:'slider',k:'cursor',label:'Pointer speed',min:25,max:300,step:25,unit:'%'},{t:'tog',k:'leftMouse',label:'Left stick also moves the pointer on the desktop'}];
+ if(s==='music')return[{t:'field',k:'spClient',label:'Spotify Client ID'},{t:'btn',opts:[['spconnect',spConnected()?'Reconnect Spotify':'Connect Spotify'],...(spConnected()?[['spdisconnect','Disconnect']]:[])]}];
  if(s==='signin')return[{t:'map',keys:['1','2','3','4']},{t:'map',keys:['5','6','7','8']},{t:'map',keys:['9','0','del','enter']},{t:'btn',opts:[['reset','Reset to default'],...(NATIVE?[]:[['signout','Sign out to test']])]}];
- if(s==='power')return[{t:'slider',k:'bright',label:'Screen brightness'},{t:'seg',k:'power',label:'Power mode',opts:[['saver','Power saver'],['balanced','Balanced'],['perf','Performance']]},{t:'seg',k:'res',label:'Resolution',opts:resOpts()},{t:'seg',k:'hz',label:'Refresh rate',opts:hzOpts()}];
+ if(s==='power')return[{t:'slider',k:'bright',label:'Screen brightness',min:10,max:100,step:10,unit:'%'},{t:'seg',k:'power',label:'Power mode',opts:[['saver','Power saver'],['balanced','Balanced'],['perf','Performance']]},{t:'seg',k:'res',label:'Resolution',opts:resOpts()},{t:'seg',k:'hz',label:'Refresh rate',opts:hzOpts()}];
  return[{t:'tog',k:'startup',label:'Open Console Mode when Windows starts'},{t:'tog',k:'pinpad',label:'Controller PIN pad on the Windows sign-in screen'},{t:'btn',opts:[['exit','Exit launcher']]}];
 }
 const gCount=g=>g.t==='seg'||g.t==='btn'?g.opts.length:g.t==='map'?g.keys.length:1;
@@ -300,12 +309,15 @@ function vSettings(){
  const side=SECS.map((s,i)=>`<button class="${i===st.sec?'on':''} ${st.side&&i===st.sec?'sf':''}" data-act="sec:${i}">${s[0]}</button>`).join('');
  const body=gs.map((g,gi)=>{
   if(g.t==='seg')return `<div><div class="gl">${g.label}</div><div class="seg">${g.opts.map((o,oi)=>`<button class="sb ${PREF[g.k]===o[0]?'on':''} ${f(gi,oi)}" data-act="sg:${gi}:${oi}">${o[1]}</button>`).join('')}</div></div>`;
-  if(g.t==='slider')return `<div><div class="gl">${g.label}</div><div class="${f(gi,0)}" style="display:flex;gap:12px;align-items:center;padding:6px;border-radius:24px;width:max-content"><button class="ic" aria-label="Darker" data-act="sl:-10">−</button><div class="bar" style="width:260px;height:8px"><i style="width:${PREF.bright}%;height:8px"></i></div><button class="ic" aria-label="Brighter" data-act="sl:10">+</button><span style="width:44px">${PREF.bright}%</span></div></div>`;
+  if(g.t==='slider'){const v=PREF[g.k]??g.min;return `<div><div class="gl">${g.label}</div><div class="${f(gi,0)}" style="display:flex;gap:12px;align-items:center;padding:6px;border-radius:24px;width:max-content"><button class="ic" aria-label="Less" data-act="sl:${gi}:-1">−</button><div class="bar" style="width:260px;height:8px"><i style="width:${(v-g.min)/(g.max-g.min)*100}%;height:8px"></i></div><button class="ic" aria-label="More" data-act="sl:${gi}:1">+</button><span style="width:52px">${v}${g.unit}</span></div></div>`}
+  if(g.t==='field')return `<div><label class="gl" for="fld-${g.k}" style="display:block">${g.label}</label><input id="fld-${g.k}" class="fld ${f(gi,0)}" data-save="${g.k}" data-act="fld:${gi}" autocomplete="off" spellcheck="false" value="${esc(PREF[g.k]||'')}" placeholder="Paste or type it here"></div>`;
   if(g.t==='tog')return `<button class="${f(gi,0)}" data-act="sg:${gi}:0" style="display:flex;gap:16px;align-items:center;justify-content:space-between;width:560px;padding:16px 18px;border-radius:14px;background:rgba(255,255,255,.06);text-align:left"><span style="font-size:15px">${g.label}</span><span class="sw ${PREF[g.k]?'on':''}"><i></i></span></button>`;
   if(g.t==='map')return `<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px">${g.keys.map((k,oi)=>`<button class="mrow ${f(gi,oi)}" data-act="sg:${gi}:${oi}"><b>${pinName(k)}</b><span>${st.listen===k?'Press a button…':MAP[k]}</span></button>`).join('')}</div>`;
   return `<div style="display:flex;gap:12px">${g.opts.map((o,oi)=>`<button class="btn ${o[0]==='exit'?'pri':''} ${f(gi,oi)}" data-act="sg:${gi}:${oi}">${o[1]}</button>`).join('')}</div>`;
  }).join('');
  let extra='';
+ if(sec[1]==='music')extra=`<div style="font-size:14px;line-height:1.6;color:#c9d2e6;max-width:640px"><b style="color:#fff">${spConnected()?'● Connected':'○ Not connected'}</b><br>One-time setup: open <b>developer.spotify.com/dashboard</b>, create an app, add the Redirect URI <b>${SP_REDIRECT}</b>, tick <b>Web API</b>, save, then copy the app’s Client ID into the box above and press Connect.</div>`;
+ if(sec[1]==='controller')extra=`<div style="font-size:14px;line-height:1.7;color:#c9d2e6;max-width:680px">Outside the console: right stick moves the pointer, <b>A</b> clicks (hold to drag), <b>B</b> right-clicks, D-pad scrolls, <b>LB/RB</b> go back and forward, <b>Y</b> opens the keyboard, <b>View</b> returns here, <b>Guide</b> (or View + Menu) opens the quick menu.<br>In full-screen games the pointer stays off so the controller only controls the game.</div>`;
  if(sec[1]==='appearance'){const pv=sortBy(GAMES.filter(g=>!g.tags.includes('ni')),PREF.sortGames).slice(0,6),pa=sortBy(APPS,PREF.sortApps).slice(0,6);
   extra=`<div style="display:flex;gap:28px;margin-top:6px">${[['Home row preview · games',pv],['Apps preview',pa]].map(([l,list])=>`<div><div class="gl">${l}</div><div style="display:flex;gap:8px">${list.map(g=>`<div title="${esc(g.t)}" style="width:64px;height:64px;border-radius:10px;background:${grad(g)};padding:5px;font:600 9px Inter;line-height:1.1;overflow:hidden">${esc(g.t)}</div>`).join('')}</div></div>`).join('')}</div>`}
  const stats=sec[1]==='power'?`<aside style="width:320px;flex:none;display:flex;flex-direction:column;gap:10px"><div class="gl" style="margin:0">PC stats · live</div>
@@ -328,16 +340,21 @@ function sgAct(gi,oi){if(NATIVE&&nSgAct(gi,oi))return;
   if(g.k==='power')toast('Power mode: '+g.opts[oi][1]);
   if(g.k==='res'||g.k==='hz')toast(`Display set to ${PREF.res.replace('×',' × ')} at ${PREF.hz} Hz`);
   if(g.k==='sortGames'){S.sel=0;S.lsel=0}if(g.k==='sortApps')S.asel=0}
- else if(g.t==='tog'){PREF[g.k]=!PREF[g.k];savePref();toast(g.k==='startup'?(PREF.startup?'Will open when Windows starts':'Won\'t open when Windows starts'):(PREF.pinpad?'PIN pad on':'PIN pad off'))}
+ else if(g.t==='tog'){PREF[g.k]=!PREF[g.k];savePref();toast(g.label+(PREF[g.k]?': on':': off'));if(g.k==='leftMouse')pushCursor();if(g.k==='showHidden'){S.sel=0;S.asel=0;S.lsel=0}}
+ else if(g.t==='field'){const el=document.getElementById('fld-'+g.k);if(el)openOsk(el)}
+ else if(g.t==='slider'){}
  else if(g.t==='map'){st.listen=g.keys[oi]}
  else if(g.t==='btn'){const a=g.opts[oi][0];
   if(a==='reset'){MAP={...DEFMAP};saveMap();toast('Mapping reset')}
   if(a==='signout'){S.game=null;S.qm.open=false;go('login');return}
-  if(a==='exit'){st.confirm=true;st.cf=1}}
+  if(a==='exit'){st.confirm=true;st.cf=1}
+  if(a==='unhide'){for(const k in HIDDEN)delete HIDDEN[k];keep('cm-hidden',HIDDEN);toast('Everything is visible again')}
+  if(a==='spconnect'){const el=document.getElementById('fld-spClient');if(el){PREF.spClient=el.value.trim();savePref()}spConnect()}
+  if(a==='spdisconnect'){SPT={};keep('cm-spotify',SPT);S.queue=[];toast('Spotify disconnected')}}
  render();
 }
 function bright(d){PREF.bright=Math.max(10,Math.min(100,PREF.bright+d));savePref();applyBright();render()}
-function render(){
+function render(){S.heroBg=null;
  const fn={login:vLogin,welcome:vWelcome,home:vHome,library:vLibrary,game:vGame,settings:vSettings,closed:vClosed}[S.screen];
  const sc=$('#scr');
  $('#desk').style.display=S.screen==='desktop'?'block':'none';
@@ -345,41 +362,68 @@ function render(){
  if(fn)sc.innerHTML=fn();
  const el=S.screen==='desktop'?$('#desk'):sc;
  if(S.last!==S.screen){el.classList.remove('enter');void el.offsetWidth;el.classList.add('enter');S.last=S.screen}
- renderQM();renderOSK();hover();
+ renderQM();renderOSK();renderOpt();paintBg();hover();
 }
-function go(s){if(NATIVE&&s==='desktop'){S.qm.open=false;closeOsk();invoke('go_desktop');render();return}if(s==='settings'&&S.screen!=='settings')S.from=S.screen;S.screen=s;if(s!=='desktop')closeOsk();render()}
+function go(s){S.opt=null;if(NATIVE&&s==='desktop'){S.qm.open=false;closeOsk();invoke('go_desktop');render();return}if(NATIVE&&s==='settings'&&SECS[S.set.sec][1]==='power')invoke('get_brightness').then(v=>{if(v!=null){PREF.bright=v;if(S.screen==='settings')render()}});if(s==='settings'&&S.screen!=='settings')S.from=S.screen;S.screen=s;if(s!=='desktop')closeOsk();render()}
 
 /* ---------- quick menu ---------- */
 const QA=[['Resume','Back to game'],['Switch game','Opens Home'],['Desktop','Controller mouse'],['Record clip','Last 30 s'],['Discord','Pinned app'],['Quit game','Closes it']];
+function nowMedia(){
+ if(!NATIVE){const t=track(S.mi);return{title:t.t,artist:t.a,album:'',source:'Spotify',playing:S.playing,position:S.pos,duration:t.len,art:null,bg:t.art}}
+ const m=S.media;if(!m)return null;
+ const pos=m.playing?Math.min(m.duration||1e9,m.position+(Date.now()-S.mediaAt)/1000):m.position;
+ return{...m,position:pos,bg:'linear-gradient(135deg,#123522,#1ed760)'};
+}
+const artBg=m=>m&&m.art?`url('${m.art}') center/cover no-repeat`:(m?m.bg:'rgba(255,255,255,.08)');
+function queueRows(){
+ if(!NATIVE)return [1,2,3,4].map(k=>{const t=track(S.mi+k);return{t:t.t,a:t.a,len:t.len,img:null,bg:t.art}});
+ return (S.queue||[]).slice(0,5);
+}
 function renderQM(){
  const q=$('#qm');if(!S.qm.open){q.style.display='none';return}
- q.style.display='block';const tr=NATIVE?npTrack():track(S.mi),pr=S.qm.side?360:0,g=S.game;
+ q.style.display='block';
+ const m=nowMedia(),pr=S.qm.side?360:0,g=S.game;
  const acts=QA.map((a,i)=>`<button class="qa ${S.qm.row===0&&S.qm.col===i?'on':''}" data-act="qa:${i}"><span class="h" style="font-size:15px;font-weight:700">${a[0]}</span><span style="font-size:11px;opacity:.75">${a[1]}</span></button>`).join('');
  const mon=i=>S.qm.row===1&&S.qm.col===i?'on':'';
- const queue=[1,2,3,4].map(k=>{const t=track(S.mi+k);return `<div style="display:flex;gap:12px;align-items:center"><div style="width:40px;height:40px;border-radius:6px;flex:none;background:${t.art}"></div><div style="flex:1"><div style="font-size:14px;font-weight:600">${t.t}</div><div style="font-size:12px;color:#8d99b5">${t.a}</div></div><span style="font-size:12px;color:#8d99b5">${mmss(t.len)}</span></div>`}).join('');
+ const playing=m?m.playing:false;
+ const vol=S.volume==null?null:S.volume;
+ const title=m?esc(m.title):'Nothing playing',artist=m?esc([m.artist,m.source].filter(Boolean).join(' · ')):'Play something in Spotify or any music app';
+ let queue='';
+ if(S.qm.side){
+  const rows=queueRows();
+  if(NATIVE&&!spConnected())queue=`<p class="muted" style="font-size:13px;margin:0 0 4px">Connect your Spotify account to see what's playing next.</p><button class="btn" style="height:38px;width:max-content" data-act="spset">Connect Spotify</button>`;
+  else if(!rows.length)queue=`<p class="muted" style="font-size:13px;margin:0">${S.queueErr?esc(S.queueErr):'Nothing queued.'}</p>`;
+  else queue=rows.map(t=>`<div style="display:flex;gap:12px;align-items:center"><div style="width:40px;height:40px;border-radius:6px;flex:none;background:${t.img?`url('${t.img}') center/cover`:t.bg}"></div><div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.t)}</div><div style="font-size:12px;color:#8d99b5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.a)}</div></div><span style="font-size:12px;color:#8d99b5">${t.len?mmss(t.len):''}</span></div>`).join('');
+ }
  q.innerHTML=`<div style="position:absolute;inset:0;background:rgba(5,8,16,.55)"></div>
  <div style="position:absolute;left:0;right:${pr}px;bottom:0;padding:24px 40px 26px;background:rgba(10,15,28,.96);border-top:1px solid rgba(255,255,255,.08);display:flex;flex-direction:column;gap:18px">
-  <div style="display:flex;justify-content:space-between;align-items:center"><div style="display:flex;gap:14px;align-items:center"><div style="width:52px;height:52px;border-radius:12px;background:${g?grad(g):'rgba(255,255,255,.1)'}"></div><div><div class="h" style="font-size:19px;font-weight:700">${g?esc(g.t):'No game running'}</div><div style="font-size:13px;color:#a9b4cc;margin-top:3px">${g?'Playing for '+mmss(Math.floor((Date.now()-S.gameStart)/1000)):'Quick menu'}</div></div></div><span class="h" style="font-size:22px;font-weight:600">${clock()}</span></div>
+  <div style="display:flex;justify-content:space-between;align-items:center"><div style="display:flex;gap:14px;align-items:center"><div style="width:52px;height:52px;border-radius:12px;background:${g?grad(g):'rgba(255,255,255,.1)'}"></div><div><div class="h" style="font-size:19px;font-weight:700">${g?esc(g.t):'No game running'}</div><div style="font-size:13px;color:#a9b4cc;margin-top:3px">${g?(g.app?'Open for ':'Playing for ')+mmss(Math.floor((Date.now()-S.gameStart)/1000)):'Quick menu'}</div></div></div><span class="h" style="font-size:22px;font-weight:600">${clock()}</span></div>
   <div style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px">${acts}</div>
-  <div style="display:flex;gap:16px;align-items:center">
-   <button class="mb spot ${mon(0)}" aria-label="Spotify sidebar" data-act="mus:spot"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg></button>
+  <div style="display:flex;gap:14px;align-items:center">
+   <button class="mb spot ${mon(0)}" aria-label="Spotify panel" data-act="mus:spot"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg></button>
    <button class="mb ${mon(1)}" aria-label="Previous track" data-act="mus:prev"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
-   <button class="mb big ${mon(2)}" aria-label="${S.playing?'Pause':'Play'}" data-act="mus:play">${S.playing?'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>':'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4v16l13-8z"/></svg>'}</button>
+   <button class="mb big ${mon(2)}" aria-label="${playing?'Pause':'Play'}" data-act="mus:play">${playing?'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>':'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4v16l13-8z"/></svg>'}</button>
    <button class="mb ${mon(3)}" aria-label="Next track" data-act="mus:next"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
-   <div style="font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px"><b>${tr.t}</b> · ${tr.a}</div>
-   <span style="font-size:13px;color:#a9b4cc;margin-left:auto">Volume <small>(LB/RB)</small></span>
-   ${NATIVE?'':`<div class="bar" style="width:140px;height:6px"><i style="width:${S.vol}%;height:6px"></i></div><span style="font-size:13px;width:26px">${S.vol}</span>`}
+   <div style="width:44px;height:44px;border-radius:8px;flex:none;background:${artBg(m)}"></div>
+   <div style="min-width:0;max-width:300px"><div style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${title}</div><div style="font-size:12px;color:#a9b4cc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${artist}</div></div>
+   <span style="font-size:13px;color:#a9b4cc;margin-left:auto">Volume</span>
+   <button class="mb ${mon(4)}" style="width:36px;height:36px" aria-label="Volume down" data-act="vol:-5">−</button>
+   <div class="bar" style="width:120px;height:6px"><i style="width:${vol==null?0:vol}%;height:6px"></i></div>
+   <button class="mb ${mon(5)}" style="width:36px;height:36px" aria-label="Volume up" data-act="vol:5">+</button>
+   <span style="font-size:13px;width:30px">${vol==null?'–':vol}</span>
   </div>
-  <div class="hint"><span><b>↑↓←→</b>Move</span><span><b>A</b>Select</span><span><b>Y</b>Spotify</span><span><b>B</b>Close</span></div>
+  <div class="hint"><span><b>↑↓←→</b>Move</span><span><b>A</b>Select</span><span><b>LB</b><b>RB</b>Volume</span><span><b>Y</b>Spotify panel</span><span><b>B</b>Close</span></div>
  </div>
- ${S.qm.side?`<aside aria-label="Spotify sidebar" style="position:absolute;top:0;right:0;bottom:0;width:360px;padding:24px;background:rgba(12,14,18,.98);border-left:1px solid rgba(255,255,255,.08);display:flex;flex-direction:column;gap:12px">
-  <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:13px;font-weight:600;color:#1ed760">Spotify · this PC</span><button class="btn" style="height:30px;font-size:12px;padding:0 12px" data-act="mus:spot">Close</button></div>
-  <div style="width:312px;height:200px;border-radius:14px;background:${tr.art}"></div>
-  <div><div class="h" style="font-size:20px;font-weight:700">${tr.t}</div><div class="muted" style="font-size:14px">${tr.a}</div></div>
-  <div><div class="bar"><i style="width:${Math.min(100,S.pos/tr.len*100)}%"></i></div><div style="display:flex;justify-content:space-between;font-size:11px;color:#8d99b5;margin-top:5px"><span>${mmss(S.pos)}</span><span>${mmss(tr.len)}</span></div></div>
-  <div style="font-size:12px;font-weight:600;color:#8d99b5;letter-spacing:1px;margin-top:6px">NEXT IN QUEUE</div>${NATIVE?'<p class="muted" style="font-size:13px;margin:0">The up-next queue needs your Spotify account. Connecting it comes in a later version.</p>':queue}
-  <div style="font-size:11px;color:#6d7891;margin-top:auto">${NATIVE?'From the Spotify app on this PC.':'Sample tracks. The real app reads these from Spotify.'}</div></aside>`:''}`;
+ ${S.qm.side?`<aside aria-label="Spotify panel" style="position:absolute;top:0;right:0;bottom:0;width:360px;padding:24px;background:rgba(12,14,18,.98);border-left:1px solid rgba(255,255,255,.08);display:flex;flex-direction:column;gap:12px">
+  <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:13px;font-weight:600;color:#1ed760">Now playing${m&&m.source?' · '+esc(m.source):''}</span><button class="btn" style="height:30px;font-size:12px;padding:0 12px" data-act="mus:spot">Close</button></div>
+  <div style="width:312px;height:220px;border-radius:14px;flex:none;background:${artBg(m)}"></div>
+  <div><div class="h" style="font-size:20px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${title}</div><div class="muted" style="font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m?esc([m.artist,m.album].filter(Boolean).join(' · ')):''}</div></div>
+  <div><div class="bar"><i id="qmprog" style="width:${m&&m.duration?Math.min(100,m.position/m.duration*100):0}%"></i></div><div style="display:flex;justify-content:space-between;font-size:11px;color:#8d99b5;margin-top:5px"><span id="qmpos">${m?mmss(Math.floor(m.position)):'0:00'}</span><span>${m&&m.duration?mmss(Math.floor(m.duration)):'–'}</span></div></div>
+  <div style="font-size:12px;font-weight:600;color:#8d99b5;letter-spacing:1px;margin-top:6px">NEXT IN QUEUE</div>${queue}
+  </aside>`:''}`;
 }
+/* Updates the progress bar between polls without re-rendering. */
+function tickProgress(){const m=nowMedia();if(!m||!S.qm.open||!S.qm.side)return;const p=$('#qmprog'),t=$('#qmpos');if(p&&m.duration)p.style.width=Math.min(100,m.position/m.duration*100)+'%';if(t)t.textContent=mmss(Math.floor(m.position))}
 function qmAct(i){if(NATIVE)return nQmAct(i);
  const g=S.game;
  if(i===0){S.qm.open=false;if(g&&S.screen!=='game')go('game');else render();return}
@@ -389,23 +433,23 @@ function qmAct(i){if(NATIVE)return nQmAct(i);
  if(i===4){toast('Would open Discord, pinned in Shortcuts');return}
  if(i===5){if(!g){toast('No game running');return}toast('Closed '+g.t);S.game=null;S.qm.open=false;go('home')}
 }
-function mus(a){if(NATIVE&&a!=='spot')return nMus(a);
+function mus(a){if(NATIVE&&a!=='spot')return nMus(a);if(a==='spot'&&NATIVE){S.qm.side=!S.qm.side;if(S.qm.side){qT=0;pollQueue()}renderQM();return}
  if(a==='spot')S.qm.side=!S.qm.side;
  if(a==='prev'){S.mi--;S.pos=0;S.playing=true}
  if(a==='next'){S.mi++;S.pos=0;S.playing=true}
  if(a==='play')S.playing=!S.playing;
  renderQM();
 }
-function qmBtn(b){if(NATIVE&&(b==='LB'||b==='RB')){invoke('media',{cmd:b==='LB'?'vol_down':'vol_up'});return}
- const q=S.qm,max=q.row===0?5:3;
+function qmBtn(b){if(b==='LB'||b==='RB'){vol(b==='LB'?-5:5);return}
+ const q=S.qm,max=5;
  if(b==='B'){if(q.side)q.side=false;else q.open=false;render();return}
- if(b==='Up'||b==='Down'){q.row=q.row?0:1;q.col=Math.min(q.col,q.row===0?5:3)}
+ if(b==='Up'||b==='Down'){q.row=q.row?0:1;q.col=Math.min(q.col,5)}
  if(b==='Left')q.col=Math.max(0,q.col-1);
  if(b==='Right')q.col=Math.min(max,q.col+1);
- if(b==='Y')q.side=!q.side;
+ if(b==='Y'){mus('spot');return}
  if(b==='LB')S.vol=Math.max(0,S.vol-8);
  if(b==='RB')S.vol=Math.min(100,S.vol+8);
- if(b==='A'){if(q.row===0){qmAct(q.col);return}mus(['spot','prev','play','next'][q.col]);return}
+ if(b==='A'){if(q.row===0){qmAct(q.col);return}if(q.col>=4){vol(q.col===4?-5:5);return}mus(['spot','prev','play','next'][q.col]);return}
  renderQM();hover();
 }
 
@@ -429,7 +473,7 @@ function oskKey(k){
  if(k==='Hide'){closeOsk();return}
  if(k==='Shift'){o.shift=!o.shift;renderOSK();return}
  if(k==='⌫'){if(c>0){v=v.slice(0,c-1)+v.slice(c);c--}}
- else if(k==='Enter'){if(el.tagName==='TEXTAREA'){v=v.slice(0,c)+'\n'+v.slice(c);c++}else{closeOsk();toast(v.trim()?'Searched for “'+v.trim()+'”':'Search is empty');return}}
+ else if(k==='Enter'){if(el.tagName==='TEXTAREA'){v=v.slice(0,c)+'\n'+v.slice(c);c++}else{closeOsk();if(el.dataset.save){PREF[el.dataset.save]=v.trim();savePref();toast('Saved');render()}else toast(v.trim()?'Searched for “'+v.trim()+'”':'Search is empty');return}}
  else{const ins=k==='Space'?' ':(o.shift&&k.length===1?k.toUpperCase():k);v=v.slice(0,c)+ins+v.slice(c);c+=ins.length;if(k!=='Space')o.shift=false}
  el.value=v;o.caret=c;renderOSK();
 }
@@ -461,7 +505,7 @@ function pinPress(k){
  if(S.pin.length===4)setTimeout(signIn,300);
 }
 function signIn(){if(S.screen!=='login')return;S.pin='';go('welcome');setTimeout(()=>go('home'),1100)}
-const homeList=()=>S.htab==='apps'?sortBy(APPS,PREF.sortApps):sortBy(GAMES.filter(g=>!g.tags.includes('ni')),PREF.sortGames).slice(0,10);
+const homeList=()=>S.htab==='apps'?sortBy(APPS.filter(visible),PREF.sortApps):sortBy(GAMES.filter(g=>visible(g)&&!g.tags.includes('ni')),PREF.sortGames).slice(0,10);
 function launch(g){if(NATIVE)return nLaunch(g);if(!g)return;if(g.tags.includes('ni')){toast('Not installed: would open Steam to install '+g.t);return}
  if(S.game&&S.game!==g)toast('Closed '+S.game.t);
  g.lp=-(++LPC);g.last='Just now';if(g.app){if(PREF.sortApps==='recent')S.asel=0}else if(PREF.sortGames==='recent')S.sel=0;if(S.game!==g)S.gameStart=Date.now();S.game=g;S.qm.open=false;go('game')}
@@ -473,14 +517,14 @@ const SCREEN={
   else if(b==='Left')S[k]=Math.max(0,S[k]-1);else if(b==='Right')S[k]=Math.max(0,Math.min(n-1,S[k]+1));
   else if(b==='A'){launch(homeList()[S[k]]);return}else if(b==='Y'){go('library');return}
   else if(b==='Menu'){go('settings');return}else if(b==='View'){go('desktop');return}
-  else if(b==='X'){toast('Options: change art, add to collection, virtual controller');return}
+  else if(b==='X'){openOpts();return}
   render()},
  library(b){
   const n=lib().length;
   if(b==='LB'||b==='RB'){S.tab=(S.tab+(b==='RB'?1:TABS.length-1))%TABS.length;S.lsel=0}
   else if(b==='Left')S.lsel=Math.max(0,S.lsel-1);else if(b==='Right')S.lsel=Math.min(n-1,S.lsel+1);
   else if(b==='Up')S.lsel=Math.max(0,S.lsel-7);else if(b==='Down')S.lsel=Math.min(n-1,S.lsel+7);
-  else if(b==='A'){launch(lib()[S.lsel]);return}else if(b==='B'){go('home');return}
+  else if(b==='A'){launch(lib()[S.lsel]);return}else if(b==='B'){go('home');return}else if(b==='X'){openOpts(lib()[S.lsel]);return}else if(b==='Y'){addGame();return}
   render()},
  game(b){},
  desktop(b){if(b==='B'&&false)return},
@@ -495,8 +539,8 @@ const SCREEN={
   const gs=groups(),g=gs[st.g];
   if(b==='Up'&&st.g>0){st.g--;st.o=Math.min(st.o,gCount(gs[st.g])-1)}
   else if(b==='Down'&&st.g<gs.length-1){st.g++;st.o=Math.min(st.o,gCount(gs[st.g])-1)}
-  else if(b==='Left'){if(g.t==='slider'){bright(-10);return}if(st.o>0)st.o--;else st.side=true}
-  else if(b==='Right'){if(g.t==='slider'){bright(10);return}st.o=Math.min(gCount(g)-1,st.o+1)}
+  else if(b==='Left'){if(g.t==='slider'){slide(st.g,-1);return}if(st.o>0)st.o--;else st.side=true}
+  else if(b==='Right'){if(g.t==='slider'){slide(st.g,1);return}st.o=Math.min(gCount(g)-1,st.o+1)}
   else if(b==='A'){sgAct(st.g,st.o);return}
   else if(b==='B')st.side=true;
   render()},
@@ -513,6 +557,7 @@ function handle(b){
  if(b==='Guide'){if(S.screen==='login'||S.screen==='welcome'||S.screen==='closed')return;if(S.osk.open)closeOsk();S.qm.open=!S.qm.open;S.qm.row=0;S.qm.col=0;S.qm.side=false;render();return}
  if(b==='A'&&S.screen!=='login'&&Date.now()-S.ct<2500&&clickAtCursor())return;
  if(S.osk.open){oskBtn(b);return}
+ if(S.opt){optBtn(b);return}
  if(S.qm.open){qmBtn(b);return}
  (SCREEN[S.screen]||(()=>{}))(b);
 }
@@ -532,15 +577,22 @@ function act(a){
  else if(n==='osk'){S.osk.r=i;S.osk.c=+y;oskKey(OSK[i][+y])}
  else if(n==='sec'){S.set.sec=i;S.set.side=true;S.set.g=0;S.set.o=0;render()}
  else if(n==='sg')sgAct(i,+y);
- else if(n==='sl')bright(i);
+ else if(n==='sl')slide(i,+y);
+ else if(n==='fld'){S.set.side=false;S.set.g=i;S.set.o=0}
  else if(n==='cf'){S.set.confirm=false;if(i===0){if(NATIVE){invoke('exit_app');return}S.game=null;S.qm.open=false;closeOsk();go('closed')}else render()}
  else if(n==='relaunch'){S.set.side=true;go('home')}
  else if(n==='reset'){MAP={...DEFMAP};saveMap();toast('Mapping reset');render()}
  else if(n==='signout'){S.game=null;S.qm.open=false;go('login')}
  else if(n==='rescan'){toast('Scanning…');if(NATIVE)(x==='apps'?loadApps():loadGames())}
+ else if(n==='opts')openOpts();
+ else if(n==='opt')optAct(i);
+ else if(n==='addgame')addGame();
+ else if(n==='vol')vol(i);
+ else if(n==='spset'){S.qm.open=false;S.set.sec=SECS.findIndex(x=>x[1]==='music');S.set.side=false;S.set.g=0;S.set.o=0;go('settings')}
  else if(n==='toast')toast(a.slice(6));
  else if(n==='help')toggleHelp();
 }
+document.addEventListener('input',e=>{const t=e.target;if(t&&t.dataset&&t.dataset.save){PREF[t.dataset.save]=t.value.trim();savePref()}});
 document.addEventListener('click',e=>{const a=e.target.closest('[data-act]');if(a){e.preventDefault();act(a.dataset.act)}});
 ['dsearch','dnotes'].forEach(id=>{const el=document.getElementById(id);el.addEventListener('mousedown',()=>{if(S.osk.open)closeOsk()})});
 
@@ -556,7 +608,7 @@ function hover(){
 }
 function clickAtCursor(){
  const [x,y]=stagePt(),el=document.elementFromPoint(x,y);if(!el||!stage.contains(el))return false;
- const inp=el.closest('input,textarea');if(inp&&S.screen==='desktop'){openOsk(inp);return true}
+ const inp=el.closest('input,textarea');if(inp){openOsk(inp);return true}
  const a=el.closest('[data-act]');if(a){act(a.dataset.act);return true}
  return false;
 }
@@ -615,53 +667,170 @@ function toggleHelp(){
 
 /* ---------- native (the Windows app) ---------- */
 function invoke(cmd,args){if(!NATIVE)return Promise.resolve(null);return window.__TAURI__.core.invoke(cmd,args||{}).catch(e=>{console.error(cmd,e);return null})}
+const store=(k,d)=>{try{return JSON.parse(localStorage.getItem(k)||'null')||d}catch(e){return d}};
+const keep=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
 const hue=s=>{let h=0;for(const c of s)h=(h*31+c.charCodeAt(0))>>>0;return h%360};
 const colors=n=>{const h=hue(n);return[`hsl(${h} 45% 16%)`,`hsl(${(h+40)%360} 55% 42%)`]};
-const PLAYED=(()=>{try{return JSON.parse(localStorage.getItem('cm-played')||'{}')}catch(e){return{}}})();
-const savePlayed=()=>{try{localStorage.setItem('cm-played',JSON.stringify(PLAYED))}catch(e){}};
+const PLAYED=store('cm-played',{}),FAV=store('cm-fav',{}),HIDDEN=store('cm-hidden',{});
+let CUSTOM=store('cm-custom',[]);
+const savePlayed=()=>keep('cm-played',PLAYED);
+const gid=g=>g.id||g.t;
+const visible=g=>PREF.showHidden||!HIDDEN[gid(g)];
 function ago(ts){if(!ts)return 'Never';const d=Math.floor((Date.now()/1000-ts)/86400);return d<=0?'Today':d===1?'Yesterday':d<30?d+' days ago':d<60?'Last month':Math.floor(d/30)+' months ago'}
 const isoDate=s=>s?new Date(s*1000).toISOString():'';
 const fsrc=p=>p?window.__TAURI__.core.convertFileSrc(p).replace(/'/g,'%27').replace(/\(/g,'%28').replace(/\)/g,'%29'):null;
 const gmeta=g=>[g.s,g.h!=null&&g.h+' h played',g.gb!=null&&g.gb+' GB'].filter(Boolean).join(' · ');
+
+/* ---- library ---- */
+function gameFrom(g){const ts=Math.max(g.last_played||0,PLAYED[g.id]||0),[c1,c2]=colors(g.name);
+ return{id:g.id,t:g.name,s:g.source,last:ago(ts),ts,lp:ts?-ts:1e12,inst:isoDate(g.installed),h:null,gb:g.size_gb,c1,c2,tags:FAV[g.id]?['fav']:[],cover:fsrc(g.cover),hero:fsrc(g.hero),kind:g.launch_kind,target:g.launch_target,workdir:g.workdir||null,folder:g.folder||null,custom:!!g.custom}}
 async function loadGames(){
  const list=await invoke('scan_games')||[];
  GAMES.length=0;
- for(const g of list){const ts=Math.max(g.last_played||0,PLAYED[g.id]||0),[c1,c2]=colors(g.name);
-  GAMES.push({id:g.id,t:g.name,s:g.source,last:ago(ts),ts,lp:ts?-ts:1e12,inst:isoDate(g.installed),h:null,gb:g.size_gb,c1,c2,tags:[],cover:fsrc(g.cover),hero:fsrc(g.hero),kind:g.launch_kind,target:g.launch_target,workdir:g.workdir||null})}
- S.sel=0;S.lsel=0;S.scanned=true;render();
+ for(const g of list)GAMES.push(gameFrom(g));
+ for(const c of CUSTOM)GAMES.push(gameFrom({id:c.id,name:c.name,source:'Added',launch_kind:'exe',launch_target:c.path,workdir:null,folder:c.path.replace(/\\[^\\]*$/,''),installed:c.added,last_played:0,custom:true}));
+ S.sel=Math.min(S.sel,9);S.lsel=0;S.scanned=true;render();
 }
 async function loadApps(){
  const list=await invoke('scan_apps')||[];
  APPS.length=0;
  for(const a of list){const id='app:'+a.app_id,ts=PLAYED[id]||0,[c1,c2]=colors(a.name);
-  APPS.push({id,t:a.name,s:'Installed app',last:ago(ts),ts,lp:ts?-ts:1e12,inst:'',app:true,c1,c2,tags:[],kind:'appid',target:a.app_id})}
+  APPS.push({id,t:a.name,s:'Installed app',last:ago(ts),ts,lp:ts?-ts:1e12,inst:'',app:true,c1,c2,tags:FAV[id]?['fav']:[],kind:'appid',target:a.app_id})}
  S.asel=0;S.appsScanned=true;render();
+}
+async function addGame(){
+ if(!NATIVE){toast('Adding games works in the Windows app');return}
+ const p=await invoke('pick_exe');if(!p)return;
+ const name=p.replace(/^.*[\\/]/,'').replace(/\.(exe|lnk|url|bat)$/i,'');
+ const id='custom:'+p.toLowerCase();
+ if(CUSTOM.some(c=>c.id===id)){toast(name+' is already in your library');return}
+ CUSTOM.push({id,name,path:p,added:Math.floor(Date.now()/1000)});keep('cm-custom',CUSTOM);
+ toast('Added '+name);loadGames();
 }
 async function nLaunch(g){
  if(!g)return;
  const ok=await invoke('launch',{kind:g.kind,target:g.target,workdir:g.workdir||null});
  if(!ok){toast('Couldn’t open '+g.t);return}
  const now=Date.now()/1000;PLAYED[g.id]=now;savePlayed();g.ts=now;g.lp=-now;g.last='Just now';
+ if(S.game!==g)S.gameStart=Date.now();
  S.game=g;S.qm.open=false;
  if(g.app){if(PREF.sortApps==='recent')S.asel=0}else if(PREF.sortGames==='recent')S.sel=0;
  S.screen='home';render();
 }
 async function nQmAct(i){
  const g=S.game;S.qm.open=false;
- if(i===0){if(g&&!(await invoke('resume_game')))toast('Couldn’t find the game window');render();return}
+ if(i===0){if(!(await invoke('resume_game'))){if(g)toast('Couldn’t find the game window');}render();return}
  if(i===1){go('home');return}
  if(i===2){go('desktop');return}
  if(i===3){if(!(await invoke('record_clip')))toast('No game window to record');render();return}
- if(i===4){if(await invoke('launch',{kind:'uri',target:'discord://',workdir:null}))invoke('set_mode',{mode:'desktop'});else toast('Discord isn’t installed');render();return}
- if(i===5){if(!g){toast('No game running');render();return}await invoke('quit_game');toast('Closed '+g.t);S.game=null;go('home')}
+ if(i===4){if(!(await invoke('open_url',{url:'discord://'})))toast('Discord isn’t installed');render();return}
+ if(i===5){if(!(await invoke('quit_game'))&&!g){toast('No game running');render();return}if(g)toast('Closed '+g.t);S.game=null;go('home')}
 }
-function nMus(a){invoke('media',{cmd:a==='play'?'play_pause':a});setTimeout(pollNp,500);setTimeout(pollNp,1600)}
-async function pollNp(){if(!NATIVE)return;const n=await invoke('now_playing');S.np=n;if(n)S.playing=n.playing;if(S.qm.open)renderQM()}
-function npTrack(){const n=S.np;return{t:n&&n.title?esc(n.title):(n?'Paused':'Nothing playing'),a:n&&n.artist?esc(n.artist):(n?'Spotify':'Open Spotify to play music'),len:0,art:'linear-gradient(135deg,#123522,#1ed760)'}}
-function npCard(){if(!NATIVE){const tr=track(S.mi);return `<b style="font-size:15px">${tr.t}</b><small>${tr.a} · ${S.playing?'Playing':'Paused'}</small>`}const t=npTrack();return `<b style="font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.t}</b><small>${t.a}</small>`}
+
+/* ---- options sheet (···, X) ---- */
+function curItem(){if(S.screen==='library')return lib()[S.lsel];const l=homeList();return l[S.htab==='apps'?S.asel:S.sel]}
+function optItems(g){const it=[[FAV[gid(g)]?'Remove from favourites':'Add to favourites','fav'],[HIDDEN[gid(g)]?'Unhide':'Hide from Home and Library','hide']];
+ if(g.folder)it.push(['Open install folder','folder']);if(g.custom)it.push(['Remove from library','remove']);it.push(['Cancel','cancel']);return it}
+function openOpts(g){g=g||curItem();if(!g)return;S.opt={g,i:0};render()}
+function renderOpt(){
+ const o=$('#opt');if(!S.opt){o.style.display='none';return}
+ o.style.display='flex';const g=S.opt.g,items=optItems(g);
+ o.innerHTML=`<div style="width:420px;padding:22px;border-radius:18px;background:#0e1424;border:1px solid rgba(255,255,255,.12);display:flex;flex-direction:column;gap:8px">
+  <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px"><div style="width:48px;height:48px;border-radius:10px;background:${grad(g)}"></div><div><div class="h" style="font-size:18px;font-weight:700">${esc(g.t)}</div><div class="muted" style="font-size:13px">${esc(g.s)}</div></div></div>
+  ${items.map((it,i)=>`<button class="btn ${i===S.opt.i?'sf':''}" style="text-align:left;border-radius:12px;height:48px" data-act="opt:${i}">${it[0]}</button>`).join('')}</div>`;
+}
+function optAct(i){
+ const g=S.opt.g,a=optItems(g)[i][1],id=gid(g);S.opt=null;
+ if(a==='fav'){if(FAV[id])delete FAV[id];else FAV[id]=1;keep('cm-fav',FAV);g.tags=FAV[id]?['fav']:g.tags.filter(t=>t!=='fav');toast(FAV[id]?'Added to favourites':'Removed from favourites')}
+ if(a==='hide'){if(HIDDEN[id])delete HIDDEN[id];else HIDDEN[id]=1;keep('cm-hidden',HIDDEN);toast(HIDDEN[id]?'Hidden. Show it again from Settings › Home & appearance.':'Unhidden');S.sel=0;S.asel=0;S.lsel=0}
+ if(a==='folder'){invoke('open_folder',{path:g.folder}).then(ok=>{if(ok)invoke('go_desktop');else toast('Couldn’t open the folder')})}
+ if(a==='remove'){CUSTOM=CUSTOM.filter(c=>c.id!==id);keep('cm-custom',CUSTOM);toast('Removed '+g.t);loadGames()}
+ render();
+}
+function optBtn(b){const n=optItems(S.opt.g).length;
+ if(b==='Up')S.opt.i=Math.max(0,S.opt.i-1);else if(b==='Down')S.opt.i=Math.min(n-1,S.opt.i+1);
+ else if(b==='A'){optAct(S.opt.i);return}else if(b==='B'||b==='X'){S.opt=null}
+ render()}
+
+/* ---- music ---- */
+function nMus(a){
+ if(!NATIVE)return;
+ invoke('media_control',{cmd:a==='play'?'play_pause':a}).then(()=>{setTimeout(pollMedia,350);setTimeout(pollMedia,1200)});
+ if(a==='play'&&S.media){S.media.playing=!S.media.playing;S.media.position=nowMedia().position;S.mediaAt=Date.now();renderQM()}
+}
+let artKey='';
+async function pollMedia(){
+ if(!NATIVE)return;
+ let m=await invoke('media_info',{art:false});
+ const key=m?m.title+'|'+m.artist:'';
+ if(m&&key!==artKey){const full=await invoke('media_info',{art:true});if(full){m=full;S.artCache=full.art||null;artKey=key}}
+ if(m&&key===artKey)m.art=S.artCache;
+ if(!m){artKey='';S.artCache=null}
+ S.media=m;S.mediaAt=Date.now();
+ if(S.qm.open)renderQM();else if(S.screen==='home')render();
+ if(S.qm.open&&S.qm.side)pollQueue();
+}
+async function pollVolume(){if(!NATIVE){S.volume=S.vol;return}const v=await invoke('get_volume');if(v){S.volume=v[0];if(S.qm.open)renderQM()}}
+async function vol(d){
+ if(!NATIVE){S.vol=Math.max(0,Math.min(100,S.vol+d));S.volume=S.vol;renderQM();return}
+ const cur=S.volume==null?50:S.volume,next=Math.max(0,Math.min(100,cur+d));
+ S.volume=next;renderQM();
+ await invoke('set_volume',{percent:next});pollVolume();
+}
+function npCard(){const m=nowMedia();
+ if(!m)return `<b style="font-size:15px">Nothing playing</b><small>Spotify or any music app</small>`;
+ return `<div style="display:flex;gap:10px;align-items:center;min-width:0"><div style="width:40px;height:40px;border-radius:6px;flex:none;background:${artBg(m)}"></div><div style="min-width:0"><b style="display:block;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(m.title)}</b><small style="display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(m.artist||m.source)} · ${m.playing?'Playing':'Paused'}</small></div></div>`}
+
+/* ---- Spotify account (for the up-next queue) ---- */
+const SP_PORT=43821,SP_REDIRECT=`http://127.0.0.1:${SP_PORT}/callback`;
+let SPT=store('cm-spotify',{});
+const spConnected=()=>!!SPT.refresh;
+function rnd(n){const a=new Uint8Array(n);crypto.getRandomValues(a);return Array.from(a,b=>('0'+b.toString(16)).slice(-2)).join('')}
+const b64url=buf=>btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+async function spConnect(){
+ const id=(PREF.spClient||'').trim();
+ if(!id){toast('Add your Spotify Client ID first');return}
+ const verifier=rnd(48),state=rnd(12);
+ const challenge=b64url(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(verifier)));
+ S.spPending={verifier,state};
+ await invoke('spotify_listen',{port:SP_PORT});
+ const q=new URLSearchParams({client_id:id,response_type:'code',redirect_uri:SP_REDIRECT,code_challenge_method:'S256',code_challenge:challenge,state,scope:'user-read-playback-state user-read-currently-playing'});
+ if(await invoke('open_url',{url:'https://accounts.spotify.com/authorize?'+q}))toast('Sign in to Spotify in your browser, then come back');else toast('Couldn’t open the browser');
+}
+function spSave(j){SPT={access:j.access_token,refresh:j.refresh_token||SPT.refresh,exp:Date.now()+((j.expires_in||3600)-60)*1000};keep('cm-spotify',SPT)}
+async function spFinish(p){
+ if(!S.spPending||p.state!==S.spPending.state){toast('That Spotify sign-in didn’t match. Try again.');return}
+ if(!p.code){toast('Spotify sign-in was cancelled');return}
+ try{
+  const r=await fetch('https://accounts.spotify.com/api/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'authorization_code',code:p.code,redirect_uri:SP_REDIRECT,client_id:PREF.spClient.trim(),code_verifier:S.spPending.verifier})});
+  const j=await r.json();
+  if(!r.ok){toast('Spotify said: '+(j.error_description||j.error||r.status));return}
+  spSave(j);S.spPending=null;toast('Spotify connected');render();
+ }catch(e){toast('Couldn’t reach Spotify. Check your internet connection.')}
+}
+async function spToken(){
+ if(!SPT.refresh)return null;if(SPT.access&&Date.now()<SPT.exp)return SPT.access;
+ try{const r=await fetch('https://accounts.spotify.com/api/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({grant_type:'refresh_token',refresh_token:SPT.refresh,client_id:(PREF.spClient||'').trim()})});
+  const j=await r.json();if(!r.ok){if(j.error==='invalid_grant'){SPT={};keep('cm-spotify',SPT)}return null}spSave(j);return SPT.access}catch(e){return null}
+}
+let qT=0;
+async function pollQueue(){
+ if(!NATIVE||!spConnected()||Date.now()-qT<4000)return;qT=Date.now();
+ const t=await spToken();if(!t){S.queueErr='Spotify sign-in expired. Reconnect it in Settings › Music.';renderQM();return}
+ try{const r=await fetch('https://api.spotify.com/v1/me/player/queue',{headers:{Authorization:'Bearer '+t}});
+  if(r.status===401){SPT.exp=0;return}
+  if(r.status===204||!r.ok){S.queue=[];S.queueErr=r.ok?'Nothing playing on Spotify.':'Spotify didn’t share the queue ('+r.status+').';renderQM();return}
+  const j=await r.json();S.queueErr='';
+  S.queue=(j.queue||[]).slice(0,5).map(x=>{const imgs=(x.album&&x.album.images)||x.images||[];const im=imgs[imgs.length-1]||imgs[0];return{t:x.name||'',a:(x.artists||[]).map(a=>a.name).join(', ')||(x.show&&x.show.name)||'',len:Math.round((x.duration_ms||0)/1000),img:im?im.url:null,bg:'rgba(255,255,255,.08)'}});
+  renderQM();
+ }catch(e){S.queueErr='Couldn’t reach Spotify.';renderQM()}
+}
+
+/* ---- TV & power, controller ---- */
 function resOpts(){if(!NATIVE||!S.dm||!S.dm.all.length)return[['1920×1080','1920 × 1080'],['2560×1440','2560 × 1440'],['3840×2160','3840 × 2160']];const seen=[];for(const m of S.dm.all){const k=m.w+'×'+m.h;if(!seen.includes(k))seen.push(k)}return seen.slice(0,5).map(k=>[k,k.replace('×',' × ')])}
 function hzOpts(){if(!NATIVE||!S.dm||!S.dm.all.length)return[['60','60 Hz'],['120','120 Hz'],['144','144 Hz']];const [w,h]=PREF.res.split('×').map(Number);const hz=[...new Set(S.dm.all.filter(m=>m.w===w&&m.h===h).map(m=>m.hz))].sort((a,b)=>b-a).slice(0,5);return hz.length?hz.map(z=>[String(z),z+' Hz']):[[PREF.hz,PREF.hz+' Hz']]}
 async function loadDisplay(){const d=await invoke('display_modes');if(!d)return;S.dm=d;if(d.current){PREF.res=d.current.w+'×'+d.current.h;PREF.hz=String(d.current.hz)}if(S.screen==='settings')render()}
+function pushCursor(){invoke('set_cursor',{speed:PREF.cursor,leftStick:!!PREF.leftMouse})}
 function nSgAct(gi,oi){
  const g=groups()[gi];if(!g)return false;
  const focus=()=>{S.set.side=false;S.set.g=gi;S.set.o=oi};
@@ -674,51 +843,91 @@ function nSgAct(gi,oi){
   focus();render();
   invoke('set_display',{w,h,hz}).then(ok=>{toast(ok?`Display set to ${w} × ${h} at ${hz} Hz`:'This display didn’t accept that mode');loadDisplay()});
   return true}
- if(g.t==='tog'&&g.k==='startup'){const on=!PREF.startup;focus();invoke('autostart_set',{on}).then(ok=>{if(ok){PREF.startup=on;savePref();toast(on?'Will open when Windows starts':'Won’t open when Windows starts')}else toast('Couldn’t change the startup setting');render()});return true}
+ if(g.t==='tog'&&g.k==='startup'){const on=!PREF.startup;focus();invoke('autostart_set',{on}).then(ok=>{if(ok){PREF.startup=on;savePref();toast(on?'Will open as soon as you sign in to Windows':'Won’t open when Windows starts')}else toast('Couldn’t change the startup setting');render()});return true}
  return false;
 }
 let bT;function nBright(){clearTimeout(bT);bT=setTimeout(async()=>{if(!(await invoke('set_brightness',{value:PREF.bright})))toast('This screen doesn’t let Windows change its brightness')},300)}
 function statRows(){if(!NATIVE)return[['CPU',ST.cpu,100,'%','#5B9BFF'],['GPU',ST.gpu,100,'%','#3FE08A'],['Memory',ST.ram,100,'%','#C79BFF'],['CPU temperature',ST.temp,100,' °C','#FF8A3D']];return[['CPU',ST.cpu,100,'%','#5B9BFF'],['GPU',ST.gpu,100,S.gpuNA?'% (n/a)':'%','#3FE08A'],['Memory',ST.ram,100,'%','#C79BFF']]}
 async function pollStats(){const s=await invoke('stats');if(!s)return;const push=(a,v)=>{a.push(Math.round(v||0));a.shift()};push(ST.cpu,s.cpu);push(ST.gpu,s.gpu);S.gpuNA=s.gpu==null;push(ST.ram,s.mem);S.memText=`Memory: ${s.mem_used_gb} of ${s.mem_total_gb} GB in use.`}
 function emptyHome(ap){
- const msg=ap?(S.appsScanned?'No entertainment apps found yet. Netflix, Prime Video, Spotify, YouTube and others show up here once they’re installed.':'Looking for your apps…'):(S.scanned?'No games found yet. Console Mode looks in Steam, Epic Games and GOG.':'Looking for your games…');
+ const msg=ap?(S.appsScanned||!NATIVE?'No entertainment apps found yet. Netflix, Prime Video, Spotify, YouTube and others show up here once they’re installed.':'Looking for your apps…'):(S.scanned||!NATIVE?'No games found yet. Console Mode looks in Steam, Epic Games and GOG, and you can add any game from the Library.':'Looking for your games…');
  return `<header style="position:absolute;left:48px;right:48px;top:22px;display:flex;align-items:center;justify-content:space-between">
   <nav style="display:flex;gap:30px"><button data-act="htab:games" style="font-size:19px;${ap?'color:rgba(255,255,255,.55)':'font-weight:600'}">Games</button><button data-act="htab:apps" style="font-size:19px;${ap?'font-weight:600':'color:rgba(255,255,255,.55)'}">Apps</button></nav>
   <div style="display:flex;gap:12px;align-items:center"><button class="ic" aria-label="Settings" data-act="go:settings"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg></button><span class="clk" style="font-size:19px;font-weight:500">${clock()}</span></div></header>
  <section style="position:absolute;left:48px;top:240px;width:640px;display:flex;flex-direction:column;gap:18px"><div class="h" style="font-size:40px;font-weight:700;line-height:1.05">${ap?'Apps':'Games'}</div><p class="muted" style="margin:0;font-size:16px">${msg}</p>
- <div style="display:flex;gap:12px"><button class="btn pri" data-act="rescan:${ap?'apps':'games'}">Scan again</button><button class="btn" data-act="go:desktop">Desktop</button></div></section>
+ <div style="display:flex;gap:12px"><button class="btn pri" data-act="rescan:${ap?'apps':'games'}">Scan again</button>${ap?'':'<button class="btn" data-act="addgame">Add a game</button>'}<button class="btn" data-act="go:desktop">Desktop</button></div></section>
  <div class="hint" style="position:absolute;left:48px;bottom:28px"><span><b>LB</b><b>RB</b>Games / Apps</span><span><b>Menu</b>Settings</span><span><b>View</b>Desktop</span></div>`;
 }
+
+/* ---- moving particles behind the console ---- */
+const FX={on:false,parts:[],raf:0,last:0,tint:[120,170,255]};
+const fx=$('#fx'),fxc=fx.getContext('2d');
+function fxSize(){if(!fxc)return;const r=stage.getBoundingClientRect(),d=Math.min(2,window.devicePixelRatio||1);fx.width=Math.round(r.width*d);fx.height=Math.round(r.height*d);fxc.setTransform(fx.width/1280,0,0,fx.height/720,0,0)}
+function fxSeed(){FX.parts=[];for(let i=0;i<90;i++){const big=i<10;FX.parts.push({x:Math.random()*1280,y:Math.random()*720,r:big?14+Math.random()*26:0.6+Math.random()*2.4,vx:4+Math.random()*10,vy:-(3+Math.random()*9),ph:Math.random()*6.28,sp:0.4+Math.random()*1.2,a:big?0.035+Math.random()*0.04:0.25+Math.random()*0.55,big})}}
+function fxTint(){const g=S.screen==='home'?homeList()[S.htab==='apps'?S.asel:S.sel]:null;FX.tint=g?[150+hue(g.t)%80,170,255-hue(g.t)%60]:[120,170,255]}
+function fxFrame(t){
+ FX.raf=requestAnimationFrame(fxFrame);
+ if(document.hidden)return;
+ const dt=Math.min(0.05,(t-(FX.last||t))/1000);FX.last=t;
+ fxc.clearRect(0,0,1280,720);
+ const [r,g,b]=FX.tint;
+ for(const p of FX.parts){
+  p.x+=p.vx*dt+Math.sin(t/1000*p.sp+p.ph)*0.15;p.y+=p.vy*dt;
+  if(p.y<-60){p.y=760;p.x=Math.random()*1280}if(p.x>1340){p.x=-60}
+  const tw=p.big?1:0.55+0.45*Math.sin(t/1000*p.sp*2+p.ph);
+  const grd=fxc.createRadialGradient(p.x,p.y,0,p.x,p.y,p.big?p.r:p.r*4);
+  grd.addColorStop(0,`rgba(${r},${g},${b},${p.a*tw})`);grd.addColorStop(p.big?0.6:0.3,`rgba(${r},${g},${b},${p.a*tw*(p.big?0.5:0.35)})`);grd.addColorStop(1,`rgba(${r},${g},${b},0)`);
+  fxc.fillStyle=grd;fxc.beginPath();fxc.arc(p.x,p.y,p.big?p.r:p.r*4,0,6.283);fxc.fill();
+ }
+}
+function fxApply(){
+ if(!fxc)return;
+ const want=PREF.particles!==false&&!matchMedia('(prefers-reduced-motion: reduce)').matches&&['home','library','settings','closed'].includes(S.screen);
+ fx.style.display=want?'block':'none';
+ if(want&&!FX.on){FX.on=true;fxSize();if(!FX.parts.length)fxSeed();FX.last=0;FX.raf=requestAnimationFrame(fxFrame)}
+ if(!want&&FX.on){FX.on=false;cancelAnimationFrame(FX.raf);fxc.clearRect(0,0,1280,720)}
+ if(want)fxTint();
+}
+addEventListener('resize',()=>{if(FX.on)fxSize()});
+const BASE_BG='radial-gradient(80% 90% at 72% 18%,#16264a 0%,#0a1224 45%,#05070d 80%)';
+function paintBg(){$('#bg').style.background=S.screen==='home'&&S.heroBg?S.heroBg:BASE_BG;fxApply()}
+
+/* ---- settings helpers shared by both modes ---- */
+function slide(gi,dir){const g=groups()[gi];if(!g||g.t!=='slider')return;const v=Math.max(g.min,Math.min(g.max,(PREF[g.k]??g.min)+dir*g.step));PREF[g.k]=v;savePref();S.set.side=false;S.set.g=gi;S.set.o=0;if(g.k==='bright')applyBright();if(g.k==='cursor')pushCursor();render()}
+
 if(NATIVE){
  const ev=window.__TAURI__.event;
  ev.listen('pad',e=>handle(e.payload));
- ev.listen('guide',()=>{if(S.osk.open)closeOsk();if(S.screen==='settings'&&S.set.listen)return;
-  if(S.qm.open){S.qm.open=false;if(S.game)invoke('resume_game');render();return}
-  S.qm.open=true;S.qm.row=0;S.qm.col=0;S.qm.side=false;pollNp();render()});
+ ev.listen('guide',()=>{if(S.osk.open)closeOsk();if(S.screen==='settings'&&S.set.listen)return;S.opt=null;
+  if(S.qm.open){S.qm.open=false;render();invoke('resume_game');return}
+  S.qm.open=true;S.qm.row=0;S.qm.col=0;S.qm.side=false;pollMedia();pollVolume();render()});
  ev.listen('home',()=>{S.qm.open=false;go('home')});
+ ev.listen('game_ended',()=>{if(S.game&&!S.game.app){S.game=null;render()}});
  ev.listen('padstatus',e=>{S.pad=e.payload?'Xbox-style controller':'';if(S.screen==='home')render()});
- window.addEventListener('focus',()=>{if(!S.game)invoke('set_mode',{mode:'console'})});
+ ev.listen('spotify_code',e=>spFinish(e.payload||{}));
  document.addEventListener('mousemove',e=>{S.ct=Date.now();S.mx=e.clientX;S.my=e.clientY;hover()});
  $('#cur').style.display='none';$('#chip').style.display='none';
- TABS=[['All games',()=>true],['Steam',g=>g.s==='Steam'],['Epic',g=>g.s==='Epic'],['GOG',g=>g.s==='GOG'],['Never played',g=>!g.ts]];
+ TABS=[['All games',()=>true],['Favourites',g=>!!FAV[g.id]],['Steam',g=>g.s==='Steam'],['Epic',g=>g.s==='Epic'],['GOG',g=>g.s==='GOG'],['Added',g=>g.s==='Added'],['Never played',g=>!g.ts]];
  GAMES.length=0;APPS.length=0;
- loadGames();loadApps();loadDisplay();
+ loadGames();loadDisplay();pushCursor();
+ setTimeout(loadApps,1500);
  invoke('autostart_get').then(v=>{if(v!=null){PREF.startup=v;savePref()}});
- invoke('get_brightness').then(v=>{if(v!=null)PREF.bright=v});
  setInterval(()=>{if(S.screen==='settings'&&SECS[S.set.sec][1]==='power')pollStats()},1000);
- setInterval(()=>{if(S.qm.open||S.screen==='home')pollNp()},3000);
- pollNp();
-}
+ setInterval(()=>{if(S.qm.open||S.screen==='home')pollMedia()},2500);
+ setInterval(()=>{if(S.qm.open)pollVolume()},4000);
+ setTimeout(pollMedia,800);setTimeout(pollVolume,1000);
+}else{S.volume=S.vol}
 
 /* ---------- timers, scaling ---------- */
 setInterval(()=>{
  document.querySelectorAll('.clk').forEach(e=>e.textContent=clock());
- if(S.playing){S.pos++;if(S.pos>=track(S.mi).len){S.mi++;S.pos=0}}
+ if(!NATIVE&&S.playing){S.pos++;if(S.pos>=track(S.mi).len){S.mi++;S.pos=0}}
+ tickProgress();
  tickStats();if(S.qm.open)renderQM();if(S.screen==='settings'&&SECS[S.set.sec][1]==='power'&&!S.set.confirm)render();
  const gt=$('#gt');if(gt&&S.game)gt.textContent=mmss(Math.floor((Date.now()-S.gameStart)/1000));
 },1000);
 function fit(){const s=Math.min(innerWidth/1280,innerHeight/720);stage.style.transform=`scale(${s})`}
-addEventListener('resize',fit);fit();applyBright();
+addEventListener('resize',fit);fit();if(!NATIVE)applyBright();
 document.querySelectorAll('.clk').forEach(e=>e.textContent=clock());
 render();
 }
