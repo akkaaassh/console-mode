@@ -75,20 +75,56 @@ pub fn download(url: &str, progress: impl Fn(u64, u64)) -> Result<std::path::Pat
     Ok(path)
 }
 
-/// Runs the installer silently, then starts Console Mode again. The caller should exit right after.
+/// Runs the installer silently, then makes sure Console Mode starts again. The caller should exit right after.
+/// Everything is logged to %TEMP%\ConsoleMode-update.log.
 pub fn install_and_restart(installer: &std::path::Path) -> Result<(), String> {
     let app = std::env::current_exe().map_err(|e| e.to_string())?;
+    let q = |p: &std::path::Path| p.display().to_string().replace('\'', "''");
+    let name = app.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default().replace('\'', "''");
+    let tmp = std::env::temp_dir();
+    let log = tmp.join("ConsoleMode-update.log");
+    let script_path = tmp.join("ConsoleMode-update.ps1");
     let script = format!(
-        "Start-Sleep -Seconds 2; Start-Process -FilePath '{}' -ArgumentList '/S' -Wait; Start-Process -FilePath '{}'",
-        installer.display().to_string().replace('\'', "''"),
-        app.display().to_string().replace('\'', "''")
+        r#"$log = '{log}'
+function L($m) {{ Add-Content -Path $log -Value ("$(Get-Date -Format s)  $m") }}
+Set-Content -Path $log -Value "Console Mode update"
+try {{
+  for ($i = 0; $i -lt 40 -and (Get-Process -Name '{name}' -ErrorAction SilentlyContinue); $i++) {{ Start-Sleep -Milliseconds 250 }}
+  L "old app closed: $(-not (Get-Process -Name '{name}' -ErrorAction SilentlyContinue))"
+  $p = Start-Process -FilePath '{inst}' -ArgumentList '/S','/UPDATE','/R' -PassThru
+  $p.WaitForExit()
+  L "installer exit code: $($p.ExitCode)"
+}} catch {{ L "error: $_" }}
+Start-Sleep -Seconds 4
+if (-not (Get-Process -Name '{name}' -ErrorAction SilentlyContinue)) {{
+  L "starting {app}"
+  try {{ Start-Process -FilePath '{app}' }} catch {{ L "start failed: $_" }}
+}} else {{ L "app already running" }}
+"#,
+        log = q(&log),
+        name = name,
+        inst = q(installer),
+        app = q(&app),
     );
+    std::fs::write(&script_path, script).map_err(|e| format!("Couldn't write the update script ({e})"))?;
     let mut cmd = std::process::Command::new("powershell.exe");
-    cmd.args(["-NoProfile", "-WindowStyle", "Hidden", "-ExecutionPolicy", "Bypass", "-Command", &script]);
+    cmd.args(["-NoProfile", "-WindowStyle", "Hidden", "-ExecutionPolicy", "Bypass", "-File"]).arg(&script_path);
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
-        cmd.creation_flags(0x0800_0000 | 0x0000_0008); // no window, detached
+        // no window, own process group, outside any job the app is in, so closing the app can't take it down
+        cmd.creation_flags(0x0800_0000 | 0x0000_0200 | 0x0100_0000);
     }
-    cmd.spawn().map(|_| ()).map_err(|e| format!("Couldn't start the installer ({e})"))
+    match cmd.spawn() {
+        Ok(_) => Ok(()),
+        Err(_) => {
+            #[cfg(windows)]
+            {
+                use std::os::windows::process::CommandExt;
+                cmd.creation_flags(0x0800_0000 | 0x0000_0200);
+            }
+            cmd.spawn().map(|_| ()).map_err(|e| format!("Couldn't start the installer ({e})"))
+        }
+    }
 }
+
