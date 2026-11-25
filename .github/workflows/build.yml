@@ -53,11 +53,20 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
-          gh release delete latest --yes --cleanup-tag || true
-          gh release create latest src-tauri/target/release/bundle/nsis/*.exe \
-            --prerelease --title "Latest build" \
-            --notes "Built automatically from ${GITHUB_SHA::7}. Download the .exe below and run it to install Console Mode."
+          set -o pipefail
+          {
+            shopt -s nullglob
+            files=(src-tauri/target/release/bundle/nsis/*.exe)
+            echo "Installer: ${files[*]}"
+            gh release delete latest --yes --cleanup-tag || true
+            git push --delete "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" latest || true
+            sleep 5
+            gh release create latest "${files[@]}" --target "$GITHUB_SHA" --prerelease \
+              --title "Latest build" \
+              --notes "Built automatically from ${GITHUB_SHA::7}. Download the .exe below and run it to install Console Mode."
+          } 2>&1 | tee publish.log
 
       # Saves the build log to the ci-logs branch so it can be read without signing in.
       - name: Save build log
@@ -69,7 +78,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/logs" && cd "$RUNNER_TEMP/logs"
           git init -q && git checkout -q -b ci-logs
           echo "${{ job.status }} ${GITHUB_SHA}" > status.txt
-          for f in test.log build.log; do
+          for f in test.log build.log publish.log; do
             if [ -f "$GITHUB_WORKSPACE/$f" ]; then
               sed -r 's/\x1B\[[0-9;]*[A-Za-z]//g' "$GITHUB_WORKSPACE/$f" > "$f"
             fi
