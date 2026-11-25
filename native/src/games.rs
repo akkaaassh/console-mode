@@ -15,6 +15,8 @@ pub struct Game {
     pub launch_kind: String,
     pub launch_target: String,
     pub workdir: Option<String>,
+    /// Install folder, when known (for "Open install folder").
+    pub folder: Option<String>,
     /// Unix seconds; 0 when unknown.
     pub last_played: u64,
     /// Unix seconds; 0 when unknown.
@@ -128,6 +130,10 @@ fn steam() -> Vec<Game> {
                 launch_kind: "uri".into(),
                 launch_target: format!("steam://rungameid/{appid}"),
                 workdir: None,
+                folder: first(&p, "installdir")
+                    .map(|d| lib.join("steamapps").join("common").join(d))
+                    .filter(|d| d.is_dir())
+                    .map(|d| d.to_string_lossy().into_owned()),
                 last_played: first(&p, "LastPlayed").and_then(|s| s.parse().ok()).unwrap_or(0),
                 installed: created_secs(&e.path()),
                 size_gb,
@@ -198,6 +204,7 @@ fn epic() -> Vec<Game> {
             launch_kind: "uri".into(),
             launch_target: format!("com.epicgames.launcher://apps/{ns}%3A{item}%3A{app}?action=launch&silent=true"),
             workdir: None,
+            folder: Some(s("InstallLocation")).filter(|x| !x.is_empty()),
             last_played: 0,
             installed: created_secs(&e.path()),
             size_gb,
@@ -225,6 +232,7 @@ fn gog() -> Vec<Game> {
             launch_kind: "exe".into(),
             installed: created_secs(Path::new(&exe)),
             launch_target: exe,
+            folder: workdir.clone(),
             workdir,
             last_played: 0,
             size_gb: None,

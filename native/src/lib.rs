@@ -15,3 +15,4 @@ pub mod reg;
 pub mod stats;
 pub mod util;
 pub mod window;
+pub mod winrt;

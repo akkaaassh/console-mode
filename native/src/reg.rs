@@ -55,3 +55,21 @@ pub fn subkeys(root: HKEY, subkey: &str) -> Vec<String> {
     }
     out
 }
+
+/// Writes a DWORD value, creating the key if needed.
+pub fn write_dword(root: HKEY, subkey: &str, value: &str, data: u32) -> bool {
+    let sub = wide(subkey);
+    let val = wide(value);
+    let r = unsafe {
+        RegSetKeyValueW(root, sub.as_ptr(), val.as_ptr(), REG_DWORD, &data as *const u32 as *const _, 4)
+    };
+    r == 0
+}
+
+/// Lets programs in the startup list (including Console Mode) open right after sign-in,
+/// instead of Windows holding them back for several seconds.
+pub fn remove_startup_delay() -> bool {
+    let key = "Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Serialize";
+    write_dword(HKEY_CURRENT_USER, key, "StartupDelayInMSec", 0)
+        & write_dword(HKEY_CURRENT_USER, key, "WaitForIdleState", 0)
+}

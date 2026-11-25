@@ -37,9 +37,17 @@ pub fn set_mode(mode: &str) -> bool {
     run_hidden("powercfg.exe", &["/setactive", plan])
 }
 
-/// 0–100. Works on laptop panels and monitors that expose brightness to Windows.
+/// 0–100. Tries the laptop panel first, then external monitors over DDC/CI.
 pub fn set_brightness(value: u32) -> bool {
     let v = value.min(100);
+    wmi_set(v) || ddc_set(v)
+}
+
+pub fn get_brightness() -> Option<u32> {
+    wmi_get().or_else(ddc_get)
+}
+
+fn wmi_set(v: u32) -> bool {
     powershell(&format!(
         "$m = Get-CimInstance -Namespace root/WMI -ClassName WmiMonitorBrightnessMethods -ErrorAction Stop; \
          Invoke-CimMethod -InputObject $m -MethodName WmiSetBrightness -Arguments @{{Timeout=1;Brightness={v}}} -ErrorAction Stop | Out-Null; 'ok'"
@@ -47,9 +55,59 @@ pub fn set_brightness(value: u32) -> bool {
     .is_some_and(|s| s.contains("ok"))
 }
 
-pub fn get_brightness() -> Option<u32> {
+fn wmi_get() -> Option<u32> {
     powershell(
         "(Get-CimInstance -Namespace root/WMI -ClassName WmiMonitorBrightness -ErrorAction Stop | Select-Object -First 1).CurrentBrightness",
     )
     .and_then(|s| s.trim().parse().ok())
+}
+
+/// Runs `f` on every physical monitor attached to the primary display.
+fn with_monitors<T>(f: impl Fn(windows_sys::Win32::Foundation::HANDLE) -> Option<T>) -> Option<T> {
+    use windows_sys::Win32::Devices::Display::*;
+    use windows_sys::Win32::Foundation::POINT;
+    use windows_sys::Win32::Graphics::Gdi::{MonitorFromPoint, MONITOR_DEFAULTTOPRIMARY};
+    unsafe {
+        let mon = MonitorFromPoint(POINT { x: 0, y: 0 }, MONITOR_DEFAULTTOPRIMARY);
+        let mut n = 0u32;
+        if GetNumberOfPhysicalMonitorsFromHMONITOR(mon, &mut n) == 0 || n == 0 {
+            return None;
+        }
+        let mut list: Vec<PHYSICAL_MONITOR> = vec![std::mem::zeroed(); n as usize];
+        if GetPhysicalMonitorsFromHMONITOR(mon, n, list.as_mut_ptr()) == 0 {
+            return None;
+        }
+        let mut out = None;
+        for m in &list {
+            if let Some(v) = f(m.hPhysicalMonitor) {
+                out = Some(v);
+            }
+        }
+        DestroyPhysicalMonitors(n, list.as_ptr());
+        out
+    }
+}
+
+fn ddc_set(v: u32) -> bool {
+    use windows_sys::Win32::Devices::Display::{GetMonitorBrightness, SetMonitorBrightness};
+    with_monitors(|h| unsafe {
+        let (mut lo, mut cur, mut hi) = (0u32, 0u32, 100u32);
+        if GetMonitorBrightness(h, &mut lo, &mut cur, &mut hi) == 0 {
+            return None;
+        }
+        let target = lo + (hi.saturating_sub(lo)) * v / 100;
+        (SetMonitorBrightness(h, target) != 0).then_some(true)
+    })
+    .unwrap_or(false)
+}
+
+fn ddc_get() -> Option<u32> {
+    use windows_sys::Win32::Devices::Display::GetMonitorBrightness;
+    with_monitors(|h| unsafe {
+        let (mut lo, mut cur, mut hi) = (0u32, 0u32, 100u32);
+        if GetMonitorBrightness(h, &mut lo, &mut cur, &mut hi) == 0 || hi <= lo {
+            return None;
+        }
+        Some((cur.saturating_sub(lo)) * 100 / (hi - lo))
+    })
 }

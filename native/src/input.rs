@@ -1,19 +1,20 @@
 //! Controller input thread.
 //!
-//! Polls XInput (Xbox-style pads, including the Blitz in XInput mode) about
-//! 120 times a second and decides what each button means:
-//! - Console mode (our window in front): buttons go to the UI as events,
-//!   the right stick moves the real mouse pointer.
-//! - Desktop mode (anything else in front, no game running): both sticks move
-//!   the mouse, A clicks, B right-clicks, D-pad up/down scrolls,
-//!   Y opens the on-screen keyboard, View returns to the console.
-//! - Game mode: the pad is left alone, except Guide (or View + Menu
-//!   together), which always brings the console quick menu up.
+//! Polls XInput (Xbox-style pads, including third-party pads in XInput mode)
+//! about 120 times a second and decides what each button means, based on
+//! what is in front:
+//! - Console (our window): buttons go to the UI; the right stick moves the pointer.
+//! - Game (a full-screen game, or the game we launched): the pad belongs to the
+//!   game. Only Guide (or View + Menu) is used, to open the quick menu.
+//! - Desktop (everything else, including Netflix, browsers and windowed apps):
+//!   both sticks move the pointer, A clicks (hold to drag), B right-clicks,
+//!   D-pad up/down scrolls, Y opens the keyboard, View returns to the console.
+//!   While the on-screen keyboard is open, the buttons drive the keyboard.
 
 use crate::keys;
 use crate::util::wide;
 use crate::window;
-use std::sync::atomic::{AtomicIsize, AtomicU8, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicIsize, AtomicU32, AtomicU8, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use windows_sys::Win32::System::LibraryLoader::{GetProcAddress, LoadLibraryW};
@@ -23,27 +24,66 @@ pub const MODE_CONSOLE: u8 = 0;
 pub const MODE_GAME: u8 = 1;
 pub const MODE_DESKTOP: u8 = 2;
 
-#[derive(Default)]
 pub struct Shared {
-    /// What the UI says is going on: MODE_CONSOLE, MODE_GAME or MODE_DESKTOP.
+    /// Kept for the UI; the input thread works out the mode itself.
     pub mode: AtomicU8,
-    /// Our main window handle.
+    /// Our main window.
     pub our_hwnd: AtomicIsize,
+    /// The on-screen keyboard window.
+    pub osk_hwnd: AtomicIsize,
+    /// True while the on-screen keyboard is showing on the desktop.
+    pub osk_open: AtomicBool,
     /// The window that was in front when Guide was pressed (usually the game).
     pub prev_fg: AtomicIsize,
+    /// The game window we have seen running, once detected.
+    pub game_hwnd: AtomicIsize,
+    /// Pointer speed in percent (25–300).
+    pub cursor_speed: AtomicU32,
+    /// Whether the left stick also moves the pointer on the desktop.
+    pub left_stick_mouse: AtomicBool,
+}
+
+impl Default for Shared {
+    fn default() -> Self {
+        Shared {
+            mode: AtomicU8::new(MODE_CONSOLE),
+            our_hwnd: AtomicIsize::new(0),
+            osk_hwnd: AtomicIsize::new(0),
+            osk_open: AtomicBool::new(false),
+            prev_fg: AtomicIsize::new(0),
+            game_hwnd: AtomicIsize::new(0),
+            cursor_speed: AtomicU32::new(100),
+            left_stick_mouse: AtomicBool::new(true),
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
 pub enum PadEvent {
-    /// A button press for the console UI (already de-bounced and auto-repeated).
+    /// A button press for the console UI (de-bounced, with auto-repeat on directions).
     Button(&'static str),
+    /// A button press for the on-screen keyboard.
+    Osk(&'static str),
     /// Guide, or View + Menu together.
     Guide,
     /// Controller connected / disconnected.
     Status(bool),
-    /// Desktop-mode actions the shell handles: "home" or "keyboard".
+    /// Desktop actions the shell handles: "home" or "keyboard".
     Desktop(&'static str),
+    /// The controller clicked something on the desktop (check for a text field).
+    Clicked,
+    /// The game window we were tracking has closed.
+    GameEnded,
 }
+
+/// Apps that may go full screen but should still get the controller pointer.
+const POINTER_APPS: [&str; 26] = [
+    "chrome.exe", "msedge.exe", "firefox.exe", "brave.exe", "opera.exe", "vivaldi.exe",
+    "applicationframehost.exe", "wwahost.exe", "msedgewebview2.exe", "vlc.exe", "spotify.exe",
+    "discord.exe", "plex.exe", "plex htpc.exe", "kodi.exe", "explorer.exe", "steam.exe",
+    "steamwebhelper.exe", "epicgameslauncher.exe", "galaxyclient.exe", "mpc-hc64.exe",
+    "potplayermini64.exe", "console-mode.exe", "netflix.exe", "photos.exe", "stremio.exe",
+];
 
 type GetStateFn = unsafe extern "system" fn(u32, *mut XINPUT_STATE) -> u32;
 
@@ -66,7 +106,6 @@ fn load_get_state() -> Option<GetStateFn> {
     None
 }
 
-// Logical buttons, one bit each.
 const B_A: u32 = 1 << 0;
 const B_B: u32 = 1 << 1;
 const B_X: u32 = 1 << 2;
@@ -121,15 +160,40 @@ fn axis(v: i16) -> f32 {
 }
 
 /// Stick to pointer speed: dead zone, then a curve so small pushes are precise.
-fn stick_speed(x: f32, y: f32) -> (f32, f32) {
+fn stick_speed(x: f32, y: f32, scale: f32) -> (f32, f32) {
     let m = (x * x + y * y).sqrt();
     const DEAD: f32 = 0.16;
     if m < DEAD {
         return (0.0, 0.0);
     }
     let n = ((m - DEAD) / (1.0 - DEAD)).min(1.0);
-    let speed = 1500.0 * n * n + 120.0 * n; // pixels per second
-    (x / m * speed, -y / m * speed) // XInput Y is up; screen Y is down
+    let speed = (1500.0 * n * n + 120.0 * n) * scale; // pixels per second
+    (x / m * speed, -y / m * speed) // XInput Y points up; screen Y points down
+}
+
+/// Works out who owns the controller right now.
+fn classify(shared: &Shared, fg: isize) -> u8 {
+    let ours = shared.our_hwnd.load(Ordering::SeqCst);
+    if ours != 0 && fg == ours {
+        return MODE_CONSOLE;
+    }
+    if fg != 0 && fg == shared.osk_hwnd.load(Ordering::SeqCst) {
+        return MODE_DESKTOP;
+    }
+    let game = shared.game_hwnd.load(Ordering::SeqCst);
+    if game != 0 && fg == game {
+        return MODE_GAME;
+    }
+    if window::is_shell(fg) || !window::is_fullscreen(fg) {
+        return MODE_DESKTOP;
+    }
+    let proc = window::process_name(fg);
+    if proc.is_empty() || POINTER_APPS.contains(&proc.as_str()) {
+        return MODE_DESKTOP;
+    }
+    // A full-screen window from anything else is treated as a game.
+    shared.game_hwnd.store(fg, Ordering::SeqCst);
+    MODE_GAME
 }
 
 pub fn spawn<F>(shared: Arc<Shared>, cb: F)
@@ -156,12 +220,22 @@ fn run<F: Fn(PadEvent)>(shared: Arc<Shared>, cb: F) {
     let mut acc = (0.0f32, 0.0f32);
     let mut last = Instant::now();
     let mut left_down = false;
+    let mut mode = MODE_CONSOLE;
+    let mut last_fg: isize = -1;
+    let mut last_classify = Instant::now() - Duration::from_secs(1);
 
     loop {
         std::thread::sleep(Duration::from_millis(8));
         let now = Instant::now();
         let dt = now.duration_since(last).as_secs_f32().min(0.05);
         last = now;
+
+        // Notice when the tracked game window goes away.
+        let game = shared.game_hwnd.load(Ordering::SeqCst);
+        if game != 0 && !window::exists(game) {
+            shared.game_hwnd.store(0, Ordering::SeqCst);
+            cb(PadEvent::GameEnded);
+        }
 
         let mut st: XINPUT_STATE = unsafe { std::mem::zeroed() };
         let ok = match slot {
@@ -183,7 +257,7 @@ fn run<F: Fn(PadEvent)>(shared: Arc<Shared>, cb: F) {
                 last_scan = now;
                 for i in 0..4u32 {
                     let mut probe: XINPUT_STATE = unsafe { std::mem::zeroed() };
-                    if unsafe { get(i, &mut probe) } == 0 {
+                    if (unsafe { get(i, &mut probe) }) == 0 {
                         slot = Some(i);
                         break;
                     }
@@ -199,34 +273,35 @@ fn run<F: Fn(PadEvent)>(shared: Arc<Shared>, cb: F) {
             cb(PadEvent::Status(true));
         }
 
-        let ours = shared.our_hwnd.load(Ordering::SeqCst);
         let fg = window::foreground();
-        let mode = if ours != 0 && fg == ours {
-            MODE_CONSOLE
-        } else {
-            match shared.mode.load(Ordering::SeqCst) {
-                MODE_GAME => MODE_GAME,
-                _ => MODE_DESKTOP,
-            }
-        };
+        if fg != last_fg || now.duration_since(last_classify) > Duration::from_millis(500) {
+            mode = classify(&shared, fg);
+            last_fg = fg;
+            last_classify = now;
+            shared.mode.store(mode, Ordering::SeqCst);
+        }
+        let ours = shared.our_hwnd.load(Ordering::SeqCst);
+        let osk = mode == MODE_DESKTOP && shared.osk_open.load(Ordering::SeqCst);
+        let left_mouse = mode == MODE_DESKTOP && !osk && shared.left_stick_mouse.load(Ordering::SeqCst);
 
         let (lx, ly) = (axis(st.Gamepad.sThumbLX), axis(st.Gamepad.sThumbLY));
         let (rx, ry) = (axis(st.Gamepad.sThumbRX), axis(st.Gamepad.sThumbRY));
         let mut cur = bits_from(&st);
 
-        // Left stick acts like the D-pad everywhere except the desktop.
-        if mode != MODE_DESKTOP {
+        // The left stick acts like the D-pad unless it is moving the pointer.
+        if !left_mouse {
             if lx < -0.55 { cur |= B_LEFT; }
             if lx > 0.55 { cur |= B_RIGHT; }
             if ly > 0.55 { cur |= B_UP; }
             if ly < -0.55 { cur |= B_DOWN; }
         }
 
-        // Mouse pointer from the sticks (never during a game).
+        // Pointer from the sticks (never inside a game).
         if mode != MODE_GAME {
-            let (mut vx, mut vy) = stick_speed(rx, ry);
-            if mode == MODE_DESKTOP {
-                let (ax, ay) = stick_speed(lx, ly);
+            let scale = shared.cursor_speed.load(Ordering::SeqCst).clamp(25, 300) as f32 / 100.0;
+            let (mut vx, mut vy) = stick_speed(rx, ry, scale);
+            if left_mouse {
+                let (ax, ay) = stick_speed(lx, ly, scale);
                 vx += ax;
                 vy += ay;
             }
@@ -243,28 +318,27 @@ fn run<F: Fn(PadEvent)>(shared: Arc<Shared>, cb: F) {
         let pressed = cur & !prev;
         let released = !cur & prev;
 
-        // Guide, or View + Menu held together.
+        // Guide, or View + Menu held together, from anywhere.
         let chord = cur & (B_VIEW | B_MENU) == (B_VIEW | B_MENU);
         if (chord && !chord_used) || pressed & B_GUIDE != 0 {
             if chord {
                 chord_used = true;
             }
-            if fg != ours {
+            if fg != ours && fg != shared.osk_hwnd.load(Ordering::SeqCst) && !window::is_shell(fg) {
                 shared.prev_fg.store(fg, Ordering::SeqCst);
             }
             cb(PadEvent::Guide);
         }
 
         // Desktop clicking follows A down/up so dragging works.
-        if mode == MODE_DESKTOP {
-            if pressed & B_A != 0 {
-                keys::mouse_left(true);
-                left_down = true;
-            }
+        if mode == MODE_DESKTOP && !osk && pressed & B_A != 0 {
+            keys::mouse_left(true);
+            left_down = true;
         }
         if released & B_A != 0 && left_down {
             keys::mouse_left(false);
             left_down = false;
+            cb(PadEvent::Clicked);
         }
 
         for (i, &(bit, name)) in NAMES.iter().enumerate() {
@@ -295,12 +369,17 @@ fn run<F: Fn(PadEvent)>(shared: Arc<Shared>, cb: F) {
             }
             match mode {
                 MODE_CONSOLE => cb(PadEvent::Button(name)),
+                MODE_DESKTOP if osk => cb(PadEvent::Osk(name)),
                 MODE_DESKTOP => match name {
                     "B" => keys::mouse_right_click(),
                     "Up" => keys::mouse_wheel(120),
                     "Down" => keys::mouse_wheel(-120),
+                    "Left" => keys::mouse_hwheel(-120),
+                    "Right" => keys::mouse_hwheel(120),
                     "Y" => cb(PadEvent::Desktop("keyboard")),
                     "View" => cb(PadEvent::Desktop("home")),
+                    "LB" => keys::tap(keys::VK_BROWSER_BACK),
+                    "RB" => keys::tap(keys::VK_BROWSER_FORWARD),
                     _ => {}
                 },
                 _ => {}

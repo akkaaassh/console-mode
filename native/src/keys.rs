@@ -12,6 +12,13 @@ pub const VK_PREV_TRACK: u16 = 0xB1;
 pub const VK_VOL_UP: u16 = 0xAF;
 pub const VK_VOL_DOWN: u16 = 0xAE;
 pub const VK_VOL_MUTE: u16 = 0xAD;
+pub const VK_BROWSER_BACK: u16 = 0xA6;
+pub const VK_BROWSER_FORWARD: u16 = 0xA7;
+pub const VK_BACK: u16 = 0x08;
+pub const VK_TAB: u16 = 0x09;
+pub const VK_RETURN: u16 = 0x0D;
+pub const VK_LEFT: u16 = 0x25;
+pub const VK_RIGHT: u16 = 0x27;
 
 fn send(inputs: &[INPUT]) {
     if inputs.is_empty() {
@@ -25,7 +32,7 @@ fn send(inputs: &[INPUT]) {
 fn key_input(vk: u16, up: bool) -> INPUT {
     let mut flags: u32 = 0;
     // Media and Windows keys are "extended" keys.
-    if matches!(vk, 0x5B | 0xAD..=0xB3) {
+    if matches!(vk, 0x5B | 0x21..=0x28 | 0x2D | 0x2E | 0xA6..=0xB3) {
         flags |= KEYEVENTF_EXTENDEDKEY;
     }
     if up {
@@ -85,6 +92,31 @@ pub fn mouse_right_click() {
 /// Positive scrolls up, negative scrolls down (120 = one notch).
 pub fn mouse_wheel(delta: i32) {
     send(&[mouse_input(MOUSEEVENTF_WHEEL, 0, 0, delta)]);
+}
+
+/// Scrolls sideways. Positive scrolls right.
+pub fn mouse_hwheel(delta: i32) {
+    send(&[mouse_input(MOUSEEVENTF_HWHEEL, 0, 0, delta)]);
+}
+
+/// Types text into whatever has focus, as if from a keyboard (any language).
+pub fn type_text(text: &str) {
+    let mut v: Vec<INPUT> = Vec::new();
+    for unit in text.encode_utf16() {
+        for up in [false, true] {
+            let mut flags = KEYEVENTF_UNICODE;
+            if up {
+                flags |= KEYEVENTF_KEYUP;
+            }
+            v.push(INPUT {
+                r#type: INPUT_KEYBOARD,
+                Anonymous: INPUT_0 {
+                    ki: KEYBDINPUT { wVk: 0, wScan: unit, dwFlags: flags, time: 0, dwExtraInfo: 0 },
+                },
+            });
+        }
+    }
+    send(&v);
 }
 
 /// Windows Game Bar "record what happened" shortcut.
